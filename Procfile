@@ -1,1 +1,1 @@
-worker: python screenshotbot.py
+worker: python bot.py
