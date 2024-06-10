@@ -1,1 +1,1 @@
-worker: python bot.py
+worker: ./setup.sh && python bot.py
