@@ -4,3 +4,7 @@ ffmpeg-python
 requests
 Pillow
 telegraph
+pyrogram
+telegraph
+ffmpeg-python
+requests
