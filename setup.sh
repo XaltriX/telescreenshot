@@ -1,18 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Install necessary dependencies
-apt-get update && apt-get install -y wget tar xz-utils
+# Install wget and other necessary tools using nix
+nix-env -iA nixpkgs.wget nixpkgs.xz nixpkgs.ffmpeg
 
-# Download and set up ffmpeg
-wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz
-tar -xJf ffmpeg-release-i686-static.tar.xz
-mkdir -p /app/bin
-mv ffmpeg-*/ffmpeg /app/bin/
-mv ffmpeg-*/ffprobe /app/bin/
-chmod +x /app/bin/ffmpeg
-chmod +x /app/bin/ffprobe
-rm -rf ffmpeg-release-i686-static.tar.xz ffmpeg-*/
-
+# Setup completed message
 echo "Setup completed."
