@@ -1,8 +1,13 @@
 import os
 from pyrogram import Client, filters
 from telegraph import upload_file
+import logging
 import asyncio
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # API credentials
 API_ID = 24955235
@@ -17,33 +22,37 @@ FFMPEG_PATH = "/app/bin/ffmpeg"
 
 # Function to generate screenshots and upload to Telegraph
 async def process_video(message):
-    # Download the video
-    video_path = await bot.download_media(message)
-    screenshots = []
+    try:
+        # Download the video
+        video_path = await bot.download_media(message)
+        screenshots = []
 
-    # Generate screenshots
-    for i in range(10):
-        screenshot_path = f"screenshot_{i}.jpg"
-        os.system(f"{FFMPEG_PATH} -i {video_path} -vf 'select=not(mod(n\\,{i+1})),scale=320:240' -vframes 1 {screenshot_path}")
-        screenshots.append(screenshot_path)
+        # Generate screenshots
+        for i in range(10):
+            screenshot_path = f"screenshot_{i}.jpg"
+            os.system(f"{FFMPEG_PATH} -i {video_path} -vf 'select=not(mod(n\\,{i+1})),scale=320:240' -vframes 1 {screenshot_path}")
+            screenshots.append(screenshot_path)
 
-    # Upload screenshots to Telegraph
-    telegraph_links = []
-    for screenshot in screenshots:
-        try:
-            response = upload_file(screenshot)
-            telegraph_link = f"https://telegra.ph{response[0]}"
-            telegraph_links.append(telegraph_link)
-        except Exception as e:
-            print(f"Failed to upload {screenshot}: {e}")
+        # Upload screenshots to Telegraph
+        telegraph_links = []
+        for screenshot in screenshots:
+            try:
+                response = upload_file(screenshot)
+                telegraph_link = f"https://telegra.ph{response[0]}"
+                telegraph_links.append(telegraph_link)
+            except Exception as e:
+                logger.error(f"Failed to upload {screenshot}: {e}")
 
-    # Send Telegraph links to the user
-    await message.reply_text("\n".join(telegraph_links))
+        # Send Telegraph links to the user
+        await message.reply_text("\n".join(telegraph_links))
 
-    # Cleanup
-    os.remove(video_path)
-    for screenshot in screenshots:
-        os.remove(screenshot)
+    except Exception as e:
+        logger.error(f"Error processing video: {e}")
+    finally:
+        # Cleanup
+        os.remove(video_path)
+        for screenshot in screenshots:
+            os.remove(screenshot)
 
 # Handle /start command
 @bot.on_message(filters.command("start"))
