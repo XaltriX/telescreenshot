@@ -1,6 +1,6 @@
-python-telegram-bot==13.13
-moviepy==1.0.3
-opencv-python==4.5.5.64
-Pillow==9.1.0
-aiohttp==3.8.1
-numpy==1.21.6
+python-telegram-bot
+moviepy
+opencv-python
+Pillow
+aiohttp
+numpy
