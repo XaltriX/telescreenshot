@@ -1,24 +1,22 @@
-FROM python:3.9-buster
+FROM python:3.9-slim
 
+# Set the working directory to /app
 WORKDIR /app
 
-# Install OpenGL dependencies
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgl1-mesa-dev \
-    libglu1-mesa-dev
-
+# Copy the requirements file
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
+# Install the dependencies
+RUN pip install -r requirements.txt
+
+# Copy the application code
 COPY . .
 
-# Create a volume mount to share a directory from your local machine
-RUN pip install railway
-RUN railway volume create /app/video_files
+# Set the environment variable for the bot token
+ENV TOKEN=$TOKEN
 
+# Expose the port for the Telegram bot
+EXPOSE 8443
+
+# Run the bot when the container starts
 CMD ["python", "screenshot.py"]
