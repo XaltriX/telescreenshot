@@ -17,4 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY screenshot.py .
 
+# Set the permissions for the video file
+RUN chmod 644 /app/video_file.mp4
+
 CMD ["python", "screenshot.py"]
