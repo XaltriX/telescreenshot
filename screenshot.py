@@ -11,7 +11,7 @@ from telegram import Update
 from telegram.ext import CallbackContext, ApplicationBuilder, CommandHandler, MessageHandler, filters
 
 # Add your bot token here
-TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
+TOKEN = 'your-bot-token-here'
 
 async def generate_screenshots(video_file: str, update: Update, context: CallbackContext) -> list:
     try:
@@ -110,10 +110,15 @@ async def upload_screenshots(screenshots: list, update: Update, context: Callbac
         print(error_message)
 
 async def screenshot(update: Update, context: CallbackContext):
-    video_file = 'path/to/your/video/file.mp4'  # Update this path
+    video = update.message.video
+    video_file_path = f"./temp/{video.file_id}.mp4"
+    
+    await update.message.video.get_file().download(custom_path=video_file_path)
+    
     try:
-        screenshots = await generate_screenshots(video_file, update, context)
+        screenshots = await generate_screenshots(video_file_path, update, context)
         await upload_screenshots(screenshots, update, context)
+        os.remove(video_file_path)
     except Exception as e:
         error_message = f"Error in screenshot function: {str(e)}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
