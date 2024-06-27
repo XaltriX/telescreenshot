@@ -9,7 +9,7 @@ import asyncio
 import aiohttp
 
 # Set up the Telegram bot
-TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
+TOKEN = os.getenv('7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU')
 bot = telegram.Bot(token=TOKEN)
 
 # Define the start command handler
@@ -98,19 +98,22 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
         # Convert the frame to RGB format
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
+        # Adjust the color balance to reduce the bluish tone
+        frame_yuv = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
+        frame_yuv[:, :, 1] = frame_yuv[:, :, 1] * 0.8
+        frame_yuv[:, :, 2] = frame_yuv[:, :, 2] * 0.8
+        adjusted_frame = cv2.cvtColor(frame_yuv, cv2.COLOR_YUV2RGB)
+        
         # Resize the frame to a fixed size
         frame_width = 640
         frame_height = int(height * frame_width / width)
-        resized_frame = cv2.resize(frame, (frame_width, frame_height), interpolation=cv2.INTER_LANCZOS4)
-        
-        # Adjust the brightness and contrast of the screenshot
-        adjusted_frame = cv2.convertScaleAbs(resized_frame, alpha=1.2, beta=20)
+        resized_frame = cv2.resize(adjusted_frame, (frame_width, frame_height), interpolation=cv2.INTER_LANCZOS4)
         
         # Add the watermark to the screenshot
-        screenshot = Image.fromarray(adjusted_frame)
+        screenshot = Image.fromarray(resized_frame)
         draw = ImageDraw.Draw(screenshot)
         font = ImageFont.truetype("arial.ttf", size=20)
-        text = "@𝐍𝐞𝐨𝐧𝐆𝐡𝐨𝐬𝐭_𝐍𝐞𝐭𝐰𝐨𝐫𝐤𝐬"
+        text = "@NeonGhost_Networks"
         text_x = (frame_width - 200) // 2
         text_y = (frame_height - 20) // 2
         draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255))
