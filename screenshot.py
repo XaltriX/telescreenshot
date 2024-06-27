@@ -19,34 +19,37 @@ async def start(update: telegram.Update, context: CallbackContext) -> None:
 
 # Define the screenshot command handler
 async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
-    if update.message and update.message.video:
-        file_id = update.message.video.file_id
-        file_name = f"{file_id}.mp4"
+    try:
+        if update.message and update.message.video:
+            file_id = update.message.video.file_id
+            file_name = f"{file_id}.mp4"
 
-        # Download the video file with progress
-        new_file = await context.bot.get_file(file_id)
-        file_path = new_file.file_path
-        file_size = new_file.file_size
-        chunk_size = 1024 * 1024  # 1 MB
+            # Download the video file with progress
+            new_file = await context.bot.get_file(file_id)
+            file_path = new_file.file_path
+            file_size = new_file.file_size
+            chunk_size = 1024 * 1024  # 1 MB
 
-        download_progress_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="Downloading video... 0%")
+            download_progress_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="Downloading video... 0%")
+            previous_progress = 0
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(file_path) as response:
-                downloaded_size = 0
-                with open(file_name, 'wb') as f:
-                    while True:
-                        chunk = await response.content.read(chunk_size)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        downloaded_size += len(chunk)
-                        progress = int(10 * downloaded_size / file_size)
-                        bar = "▰" * progress + "═" * (10 - progress)
-                        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=download_progress_message.message_id, text=f"Downloading video... {bar} {progress * 10}%")
-                        await asyncio.sleep(0.5)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(file_path) as response:
+                    downloaded_size = 0
+                    with open(file_name, 'wb') as f:
+                        while True:
+                            chunk = await response.content.read(chunk_size)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                            downloaded_size += len(chunk)
+                            progress = int(10 * downloaded_size / file_size)
+                            if progress != previous_progress:
+                                bar = "▰" * progress + "═" * (10 - progress)
+                                await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=download_progress_message.message_id, text=f"Downloading video... {bar} {progress * 10}%")
+                                previous_progress = progress
+                            await asyncio.sleep(0.5)
 
-        try:
             # Generate the screenshots
             screenshots = await generate_screenshots(file_name, update, context)
 
@@ -61,10 +64,16 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
             # Delete the downloaded video file
             os.remove(file_name)
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Video file deleted to free up space.")
-        
-        except Exception as e:
-            # Handle errors
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {str(e)}")
+    except telegram.error.BadRequest as e:
+        if "Message is not modified" in str(e):
+            # Handle the "Message is not modified" error
+            pass
+        else:
+            # Handle other BadRequest errors
+            raise e
+    except Exception as e:
+        # Handle other exceptions
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {str(e)}")
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Please send a video.")
 
@@ -89,6 +98,7 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
     
     # Send progress indicators for screenshot generation
     screenshot_progress_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="Generating screenshots... 0%")
+    previous_progress = 0
 
     # Generate the screenshots
     screenshots = []
@@ -123,8 +133,10 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
         
         # Update the progress message
         progress = int(10 * (i + 1) / num_screenshots)
-        bar = "▰" * progress + "═" * (10 - progress)
-        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=screenshot_progress_message.message_id, text=f"Generating screenshots... {bar} {(i+1)*10}%")
+        if progress != previous_progress:
+            bar = "▰" * progress + "═" * (10 - progress)
+            await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=screenshot_progress_message.message_id, text=f"Generating screenshots... {bar} {(i+1)*10}%")
+            previous_progress = progress
         await asyncio.sleep(0.5)
     
     # Close the video clip
