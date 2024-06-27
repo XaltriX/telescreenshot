@@ -1,107 +1,140 @@
 import os
-from pyrogram import Client, filters
-from telegraph import upload_file
-import logging
+import telegram
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackContext, filters
+from moviepy.editor import VideoFileClip
+import cv2
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 import asyncio
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import aiohttp
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Set up the Telegram bot
+TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
+bot = telegram.Bot(token=TOKEN)
 
-# API credentials
-API_ID = 24955235
-API_HASH = 'f317b3f7bbe390346d8b46868cff0de8'
-BOT_TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
+# Define the start command handler
+async def start(update: telegram.Update, context: CallbackContext) -> None:
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Hi! Send me a video to generate screenshot collage.")
 
-# Initialize the bot
-bot = Client("screenshot_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# Define the screenshot command handler
+async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
+    if update.message and update.message.video:
+        file_id = update.message.video.file_id
+        file_name = f"{file_id}.mp4"
 
-# Set FFmpeg path
-FFMPEG_PATH = "/app/bin/ffmpeg"
+        # Download the video file with progress
+        new_file = await context.bot.get_file(file_id)
+        file_path = new_file.file_path
+        file_size = new_file.file_size
+        chunk_size = 1024 * 1024  # 1 MB
 
-# Function to generate screenshots and upload to Telegraph
-async def process_video(message):
-    try:
-        # Download the video
-        video_path = await bot.download_media(message)
-        screenshots = []
+        download_progress_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="Downloading video... 0%")
 
-        # Generate screenshots
-        for i in range(10):
-            screenshot_path = f"screenshot_{i}.jpg"
-            os.system(f"{FFMPEG_PATH} -i {video_path} -vf 'select=not(mod(n\\,{i+1})),scale=320:240' -vframes 1 {screenshot_path}")
-            screenshots.append(screenshot_path)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(file_path) as response:
+                downloaded_size = 0
+                with open(file_name, 'wb') as f:
+                    while True:
+                        chunk = await response.content.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded_size += len(chunk)
+                        progress = int(10 * downloaded_size / file_size)
+                        bar = "▰" * progress + "═" * (10 - progress)
+                        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=download_progress_message.message_id, text=f"Downloading video... {bar} {progress * 10}%")
+                        await asyncio.sleep(0.5)
 
-        # Upload screenshots to Telegraph
-        telegraph_links = []
-        for screenshot in screenshots:
-            try:
-                response = upload_file(screenshot)
-                telegraph_link = f"https://telegra.ph{response[0]}"
-                telegraph_links.append(telegraph_link)
-            except Exception as e:
-                logger.error(f"Failed to upload {screenshot}: {e}")
+        try:
+            # Generate the screenshots
+            screenshots = await generate_screenshots(file_name, update, context)
 
-        # Send Telegraph links to the user
-        await message.reply_text("\n".join(telegraph_links))
+            # Upload the screenshots to the user
+            for i, screenshot in enumerate(screenshots):
+                screenshot_path = f"screenshot_{file_id}_{i+1}.png"
+                screenshot.save(screenshot_path, optimize=True, quality=95)
+                with open(screenshot_path, 'rb') as f:
+                    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
+                os.remove(screenshot_path)
 
-    except Exception as e:
-        logger.error(f"Error processing video: {e}")
-    finally:
-        # Cleanup
-        os.remove(video_path)
-        for screenshot in screenshots:
-            os.remove(screenshot)
-
-# Handle /start command
-@bot.on_message(filters.command("start"))
-async def start(client, message):
-    buttons = [[
-        InlineKeyboardButton('Help', callback_data='help'),
-        InlineKeyboardButton('Close', callback_data='close')
-    ],
-    [
-        InlineKeyboardButton('Our Channel', url='http://telegram.me/indusbots'),
-        InlineKeyboardButton('Source Code', url='https://github.com/benchamxd/Telegraph-Uploader')
-    ]]
-    reply_markup = InlineKeyboardMarkup(buttons)
-    await message.reply_text(
-        "<b>Hey there,\n\nI'm a telegraph uploader that can upload photos, videos, and GIFs.\n\nSimply send me a photo, video, or GIF to upload to Telegra.ph.\n\nMade with love by @indusBots</b>",
-        reply_markup=reply_markup,
-        parse_mode="html"
-    )
-
-# Handle video messages
-@bot.on_message(filters.video)
-async def video_handler(client, message):
-    if message.video.file_size < 5242880:  # 5MB limit
-        await process_video(message)
+            # Delete the downloaded video file
+            os.remove(file_name)
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="Video file deleted to free up space.")
+        
+        except Exception as e:
+            # Handle errors
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {str(e)}")
     else:
-        await message.reply_text("Size should be less than 5MB.")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Please send a video.")
 
-# Handle GIF messages
-@bot.on_message(filters.animation)
-async def gif_handler(client, message):
-    if message.animation.file_size < 5242880:  # 5MB limit
-        await process_video(message)
+async def generate_screenshots(video_file: str, update: telegram.Update, context: CallbackContext) -> list[Image.Image]:
+    # Load the video
+    clip = VideoFileClip(video_file)
+    
+    # Get the video dimensions
+    width, height = int(clip.w), int(clip.h)
+    
+    # Get the video duration
+    duration = clip.duration
+    
+    # Determine the number of screenshots based on the video duration
+    if duration < 60:  # Less than 1 minute
+        num_screenshots = 5
     else:
-        await message.reply_text("Size should be less than 5MB.")
+        num_screenshots = 10
+    
+    # Calculate the time points for screenshots
+    time_points = np.linspace(0, duration, num_screenshots, endpoint=False)
+    
+    # Send progress indicators for screenshot generation
+    screenshot_progress_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="Generating screenshots... 0%")
 
-# Handle photo messages
-@bot.on_message(filters.photo)
-async def photo_handler(client, message):
-    msg = await message.reply_text("Trying to download...")
-    photo_path = await bot.download_media(message)
-    await msg.edit_text("Trying to upload...")
-    try:
-        response = upload_file(photo_path)
-        telegraph_link = f"https://telegra.ph{response[0]}"
-        await msg.edit_text(telegraph_link)
-    except Exception as e:
-        await msg.edit_text(f"Something went wrong: {e}")
-    finally:
-        os.remove(photo_path)
+    # Generate the screenshots
+    screenshots = []
+    for i, time_point in enumerate(time_points):
+        # Get the frame at the specified time point
+        frame = clip.get_frame(time_point)
+        
+        # Convert the frame to RGB format
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Resize the frame to a fixed size
+        frame_width = 640
+        frame_height = int(height * frame_width / width)
+        resized_frame = cv2.resize(frame, (frame_width, frame_height), interpolation=cv2.INTER_LANCZOS4)
+        
+        # Adjust the brightness and contrast of the screenshot
+        adjusted_frame = cv2.convertScaleAbs(resized_frame, alpha=1.2, beta=20)
+        
+        # Add the watermark to the screenshot
+        screenshot = Image.fromarray(adjusted_frame)
+        draw = ImageDraw.Draw(screenshot)
+        font = ImageFont.truetype("arial.ttf", size=20)
+        text = "@𝐍𝐞𝐨𝐧𝐆𝐡𝐨𝐬𝐭_𝐍𝐞𝐭𝐰𝐨𝐫𝐤𝐬"
+        text_x = (frame_width - 200) // 2
+        text_y = (frame_height - 20) // 2
+        draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255))
+        
+        screenshots.append(screenshot)
+        
+        # Update the progress message
+        progress = int(10 * (i + 1) / num_screenshots)
+        bar = "▰" * progress + "═" * (10 - progress)
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=screenshot_progress_message.message_id, text=f"Generating screenshots... {bar} {(i+1)*10}%")
+        await asyncio.sleep(0.5)
+    
+    # Close the video clip
+    clip.close()
+    
+    return screenshots
 
-# Run the bot
-bot.run()
+def main():
+    application = ApplicationBuilder().token(TOKEN).build()
+    
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.VIDEO, screenshot))
+    
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
