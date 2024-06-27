@@ -1,24 +1,18 @@
-FROM python:3.9-slim
+# Use an official Python runtime as a parent image
+FROM python:3.10-slim
 
-# Set the working directory to /app
+# Set the working directory
 WORKDIR /app
 
-# Copy the requirements file
-COPY requirements.txt .
+# Copy the current directory contents into the container at /app
+COPY . /app
 
-# Install the dependencies
-RUN apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0
-RUN pip install -r requirements.txt
-RUN pip install opencv-python
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
-COPY . .
+# Download necessary NLTK data
+RUN apt-get update && apt-get install -y libglib2.0-0 libsm6 libxext6 libxrender-dev && apt-get clean
+RUN apt-get update && apt-get install -y ffmpeg && apt-get clean
 
-# Set the environment variable for the bot token
-ENV TOKEN=$TOKEN
-
-# Expose the port for the Telegram bot
-EXPOSE 8443
-
-# Run the bot when the container starts
+# Run the bot script when the container launches
 CMD ["python", "screenshot.py"]
