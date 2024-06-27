@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create a volume mount to share a directory from your local machine
-RUN mkdir -p /app/video_files && docker run -d --name video_volume railway/railway:v1 volume create /app/video_files
+RUN pip install railway
+RUN railway volume create /app/video_files
 
 CMD ["python", "screenshot.py"]
