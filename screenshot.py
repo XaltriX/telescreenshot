@@ -54,6 +54,10 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
                                 previous_progress = progress
                             await asyncio.sleep(0.5)
 
+            # Check if the video file exists
+            if not os.path.isfile(file_name):
+                raise FileNotFoundError(f"The video file '{file_name}' does not exist.")
+            
             # Generate the screenshots
             screenshots = await generate_screenshots(file_name, update, context)
 
@@ -85,11 +89,12 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
 
 async def generate_screenshots(video_file: str, update: telegram.Update, context: CallbackContext) -> list[Image.Image]:
     try:
-        # Construct the video file path
-        video_file_path = os.path.join('/app', video_file)
+        # Check if the video file exists
+        if not os.path.isfile(video_file):
+            raise FileNotFoundError(f"The video file '{video_file}' does not exist or cannot be accessed.")
         
         # Load the video
-        clip = VideoFileClip(video_file_path)
+        clip = VideoFileClip(video_file)
         
         # Get the video dimensions
         width, height = int(clip.w), int(clip.h)
