@@ -86,8 +86,11 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
 
 async def generate_screenshots(video_file: str, update: telegram.Update, context: CallbackContext) -> list[Image.Image]:
     try:
+        # Construct the video file path
+        video_file_path = os.path.join('/app', video_file)
+        
         # Load the video
-        clip = VideoFileClip(video_file)
+        clip = VideoFileClip(video_file_path)
         
         # Get the video dimensions
         width, height = int(clip.w), int(clip.h)
@@ -192,4 +195,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
