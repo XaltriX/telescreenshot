@@ -4,13 +4,12 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 from moviepy.editor import VideoFileClip
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFont
 import asyncio
 import aiohttp
-import requests
 
 # Set up the Telegram bot
-TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'  # Hardcoded token
+TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'  # Replace with your bot token
 bot = telegram.Bot(token=TOKEN)
 
 # Define the start command handler
@@ -62,9 +61,17 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
             # Generate the screenshots
             screenshots = await generate_screenshots(file_name, update, context)
 
-            # Upload the screenshots to graph.org and send the links to the user
-            links = await upload_screenshots(screenshots, update, context)
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="Screenshots uploaded to graph.org:\n" + "\n".join(links))
+            # Upload the screenshots and get the links
+            links = []
+            for screenshot in screenshots:
+                link = await upload_to_graph(screenshot)
+                links.append(link)
+                os.remove(screenshot)  # Remove the screenshot after upload
+
+            # Send the links to the user
+            if links:
+                links_message = "\n".join(links)
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Screenshots uploaded to graph.org:\n{links_message}")
 
             # Delete the downloaded video file
             os.remove(file_name)
@@ -84,7 +91,7 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Please send a video.")
 
-async def generate_screenshots(video_file: str, update: telegram.Update, context: CallbackContext) -> list[Image.Image]:
+async def generate_screenshots(video_file: str, update: telegram.Update, context: CallbackContext) -> list[str]:
     try:
         # Check if the video file exists
         if not os.path.isfile(video_file):
@@ -113,7 +120,7 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
         previous_progress = 0
 
         # Generate the screenshots
-        screenshots = []
+        screenshot_paths = []
         for i, time_point in enumerate(time_points):
             retry_count = 0
             max_retries = 3
@@ -148,7 +155,9 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
                     text_y = (frame_height - 20) // 2
                     draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255))
                     
-                    screenshots.append(screenshot)
+                    screenshot_path = f"screenshot_{video_file}_{i+1}.png"
+                    screenshot.save(screenshot_path, optimize=True, quality=95)
+                    screenshot_paths.append(screenshot_path)
                     
                     # Update the progress message
                     progress = int(10 * (i + 1) / num_screenshots)
@@ -177,7 +186,7 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
         # Close the video clip
         clip.close()
         
-        return screenshots
+        return screenshot_paths
     except FileNotFoundError as e:
         error_message = f"Error generating screenshots: {str(e)}\nMake sure the video file '{video_file}' exists and has the correct permissions."
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
@@ -189,27 +198,13 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
         print(error_message)
         raise e
 
-async def upload_screenshots(screenshots: list[Image.Image], update: telegram.Update, context: CallbackContext) -> list[str]:
-    try:
-        upload_url = "https://graph.org/upload"
-        links = []
-        for i, screenshot in enumerate(screenshots):
-            screenshot_path = f"screenshot_{i+1}.png"
-            screenshot.save(screenshot_path, optimize=True, quality=95)
-            with open(screenshot_path, 'rb') as f:
-                response = requests.post(upload_url, files={'file': f})
-                if response.status_code == 200:
-                    json_response = response.json()
-                    if "src" in json_response:
-                        link = "https://graph.org" + json_response["src"]
-                        links.append(link)
-                os.remove(screenshot_path)
-        return links
-    except Exception as e:
-        error_message = f"Error uploading screenshots: {str(e)}"
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-        print(error_message)
-        raise e
+async def upload_to_graph(file_path: str) -> str:
+    url = "https://graph.org/upload"
+    async with aiohttp.ClientSession() as session:
+        with open(file_path, 'rb') as f:
+            async with session.post(url, data={'file': f}) as response:
+                data = await response.json()
+                return data['url']
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
