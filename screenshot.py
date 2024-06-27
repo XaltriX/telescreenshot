@@ -15,7 +15,12 @@ bot = telegram.Bot(token=TOKEN)
 
 # Define the start command handler
 async def start(update: telegram.Update, context: CallbackContext) -> None:
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Hi! Send me a video to generate screenshot collage.")
+    try:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Hi! Send me a video to generate screenshot collage.")
+    except Exception as e:
+        error_message = f"Error in start function: {str(e)}"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+        print(error_message)
 
 # Define the screenshot command handler
 async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
@@ -73,7 +78,9 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
             raise e
     except Exception as e:
         # Handle any other exceptions
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error: {str(e)}")
+        error_message = f"Error in screenshot function: {str(e)}"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+        print(error_message)
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Please send a video.")
 
@@ -104,49 +111,60 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
         # Generate the screenshots
         screenshots = []
         for i, time_point in enumerate(time_points):
-            # Get the frame at the specified time point
-            frame = clip.get_frame(time_point)
-            
-            # Convert the frame to RGB format
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # Adjust the color balance to reduce the bluish tone
-            frame_yuv = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
-            frame_yuv[:, :, 1] = frame_yuv[:, :, 1] * 0.8
-            frame_yuv[:, :, 2] = frame_yuv[:, :, 2] * 0.8
-            adjusted_frame = cv2.cvtColor(frame_yuv, cv2.COLOR_YUV2RGB)
-            
-            # Resize the frame to a fixed size
-            frame_width = 640
-            frame_height = int(height * frame_width / width)
-            resized_frame = cv2.resize(adjusted_frame, (frame_width, frame_height), interpolation=cv2.INTER_LANCZOS4)
-            
-            # Add the watermark to the screenshot
-            screenshot = Image.fromarray(resized_frame)
-            draw = ImageDraw.Draw(screenshot)
-            font = ImageFont.truetype("arial.ttf", size=20)
-            text = "@NeonGhost_Networks"
-            text_x = (frame_width - 200) // 2
-            text_y = (frame_height - 20) // 2
-            draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255))
-            
-            screenshots.append(screenshot)
-            
-            # Update the progress message
-            progress = int(10 * (i + 1) / num_screenshots)
-            if progress != previous_progress:
-                bar = "▰" * progress + "═" * (10 - progress)
-                await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=screenshot_progress_message.message_id, text=f"Generating screenshots... {bar} {(i+1)*10}%")
-                previous_progress = progress
-            await asyncio.sleep(0.5)
+            try:
+                # Get the frame at the specified time point
+                frame = clip.get_frame(time_point)
+                
+                # Convert the frame to RGB format
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Adjust the color balance to reduce the bluish tone
+                frame_yuv = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
+                frame_yuv[:, :, 1] = frame_yuv[:, :, 1] * 0.8
+                frame_yuv[:, :, 2] = frame_yuv[:, :, 2] * 0.8
+                adjusted_frame = cv2.cvtColor(frame_yuv, cv2.COLOR_YUV2RGB)
+                
+                # Resize the frame to a fixed size
+                frame_width = 640
+                frame_height = int(height * frame_width / width)
+                resized_frame = cv2.resize(adjusted_frame, (frame_width, frame_height), interpolation=cv2.INTER_LANCZOS4)
+                
+                # Add the watermark to the screenshot
+                screenshot = Image.fromarray(resized_frame)
+                draw = ImageDraw.Draw(screenshot)
+                font = ImageFont.truetype("arial.ttf", size=20)
+                text = "@NeonGhost_Networks"
+                text_x = (frame_width - 200) // 2
+                text_y = (frame_height - 20) // 2
+                draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255))
+                
+                screenshots.append(screenshot)
+                
+                # Update the progress message
+                progress = int(10 * (i + 1) / num_screenshots)
+                if progress != previous_progress:
+                    bar = "▰" * progress + "═" * (10 - progress)
+                    await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=screenshot_progress_message.message_id, text=f"Generating screenshots... {bar} {(i+1)*10}%")
+                    previous_progress = progress
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                error_message = f"Error in generate_screenshots loop: {str(e)}"
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+                print(error_message)
         
         # Close the video clip
         clip.close()
         
         return screenshots
+    except FileNotFoundError as e:
+        error_message = f"Error generating screenshots: {str(e)}\nMake sure the video file '{video_file}' exists and has the correct permissions."
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+        print(error_message)
+        raise e
     except Exception as e:
-        # Handle any exceptions that occur during screenshot generation
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error generating screenshots: {str(e)}")
+        error_message = f"Error in generate_screenshots function: {str(e)}"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+        print(error_message)
         raise e
 
 def main():
