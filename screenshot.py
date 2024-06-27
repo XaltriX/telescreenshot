@@ -1,6 +1,7 @@
 import os
 import time
 import asyncio
+import requests
 from moviepy.editor import VideoFileClip
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -8,6 +9,9 @@ import cv2
 from telegraph import upload_file
 from telegram import Update
 from telegram.ext import CallbackContext, ApplicationBuilder, CommandHandler, MessageHandler, filters
+
+# Add your bot token here
+TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
 
 async def generate_screenshots(video_file: str, update: Update, context: CallbackContext) -> list:
     try:
@@ -114,6 +118,9 @@ async def screenshot(update: Update, context: CallbackContext):
         error_message = f"Error in screenshot function: {str(e)}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
         print(error_message)
+
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("Welcome! Send me a video to generate and upload screenshots.")
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
