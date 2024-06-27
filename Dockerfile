@@ -21,4 +21,4 @@ ENV TOKEN=$TOKEN
 EXPOSE 8443
 
 # Run the bot when the container starts
-CMD ["python", "main.py"]
+CMD ["python", "screenshot.py"]
