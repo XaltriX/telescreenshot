@@ -15,10 +15,9 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY screenshot.py .
-COPY video_file.mp4 .
+COPY . .
 
-# Set the permissions for the video file
-RUN chmod 644 /app/video_file.mp4
+# Create a volume mount to share a directory from your local machine
+VOLUME ["/app/video_files"]
 
 CMD ["python", "screenshot.py"]
