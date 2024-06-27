@@ -142,7 +142,10 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
                     # Add the watermark to the screenshot
                     screenshot = Image.fromarray(resized_frame)
                     draw = ImageDraw.Draw(screenshot)
-                    font = ImageFont.truetype("arial.ttf", size=20)
+                    try:
+                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size=20)
+                    except IOError:
+                        font = ImageFont.load_default()
                     text = "@NeonGhost_Networks"
                     text_x = (frame_width - 200) // 2
                     text_y = (frame_height - 20) // 2
