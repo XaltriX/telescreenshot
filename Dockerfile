@@ -7,7 +7,9 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install the dependencies
+RUN apt-get update && apt-get install -y libgl1-mesa-glx
 RUN pip install -r requirements.txt
+RUN pip install opencv-python
 
 # Copy the application code
 COPY . .
@@ -19,4 +21,4 @@ ENV TOKEN=$TOKEN
 EXPOSE 8443
 
 # Run the bot when the container starts
-CMD ["python", "screenshot.py"]
+CMD ["python", "main.py"]
