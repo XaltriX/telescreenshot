@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import cv2
 from telegraph import upload_file
-from telegram import Update
+from telegram import Update, InputFile
 from telegram.ext import CallbackContext, ApplicationBuilder, CommandHandler, MessageHandler, filters
 
 # Add your bot token here
@@ -109,11 +109,25 @@ async def upload_screenshots(screenshots: list, update: Update, context: Callbac
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
         print(error_message)
 
+async def download_file(update: Update, context: CallbackContext, file_path: str):
+    file = await context.bot.get_file(update.message.video.file_id)
+    total_size = file.file_size
+    downloaded_size = 0
+    chunk_size = 1024 * 1024  # 1 MB
+    progress_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="Downloading video... 0%")
+    
+    with open(file_path, 'wb') as f:
+        async for chunk in file.download_as_stream(chunk_size=chunk_size):
+            f.write(chunk)
+            downloaded_size += len(chunk)
+            progress = int(downloaded_size / total_size * 100)
+            await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=progress_message.message_id, text=f"Downloading video... {progress}%")
+
 async def screenshot(update: Update, context: CallbackContext):
     video = update.message.video
     video_file_path = f"./temp/{video.file_id}.mp4"
     
-    await update.message.video.get_file().download(custom_path=video_file_path)
+    await download_file(update, context, video_file_path)
     
     try:
         screenshots = await generate_screenshots(video_file_path, update, context)
