@@ -119,8 +119,8 @@ async def screenshot(update: Update, context: CallbackContext):
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
         print(error_message)
 
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Welcome! Send me a video to generate and upload screenshots.")
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text("Welcome! Send me a video to generate and upload screenshots.")
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
