@@ -16,6 +16,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY screenshot.py .
+COPY video_file.mp4 .
 
 # Set the permissions for the video file
 RUN chmod 644 /app/video_file.mp4
