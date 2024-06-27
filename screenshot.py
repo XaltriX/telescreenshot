@@ -10,7 +10,7 @@ import aiohttp
 import requests
 
 # Set up the Telegram bot
-TOKEN = 'your-telegram-bot-token-here'  # Hardcoded token
+TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'  # Hardcoded token
 bot = telegram.Bot(token=TOKEN)
 
 # Define the start command handler
