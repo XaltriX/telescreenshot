@@ -1,23 +1,17 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim
+# Use the official Python image
+FROM python:3.9
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Copy the requirements file into the container
+COPY requirements.txt .
 
-# Install any needed packages specified in requirements.txt
-RUN apt-get update && \
-    apt-get install -y ffmpeg libsm6 libxext6 libglib2.0-0 libfontconfig1 && \
-    apt-get install -y fonts-dejavu-core && \
-    apt-get clean
-
-# Install Python packages
+# Install the required packages
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Make port 8080 available to the world outside this container
-EXPOSE 8080
+# Copy the rest of your application code into the container
+COPY . .
 
-# Run bot.py when the container launches
+# Run the application
 CMD ["python", "screenshot.py"]
