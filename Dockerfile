@@ -19,3 +19,4 @@ RUN mkdir -p /app/temp
 # Run the application
 CMD ["python", "screenshot.py"]
 
+
