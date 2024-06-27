@@ -9,8 +9,7 @@ import asyncio
 import aiohttp
 
 # Set up the Telegram bot
-TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
-print(f"Bot token: {TOKEN}")
+TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'  # Hardcoded token
 bot = telegram.Bot(token=TOKEN)
 
 # Define the start command handler
