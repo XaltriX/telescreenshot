@@ -11,7 +11,7 @@ from telegram import Update
 from telegram.ext import CallbackContext, ApplicationBuilder, CommandHandler, MessageHandler, filters
 
 # Add your bot token here
-TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
+TOKEN = 'your-bot-token-here'
 
 async def generate_screenshots(video_file: str, update: Update, context: CallbackContext) -> list:
     try:
