@@ -9,7 +9,7 @@ import asyncio
 import aiohttp
 
 # Set up the Telegram bot
-TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'  # Replace with your bot token
+TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
 bot = telegram.Bot(token=TOKEN)
 
 # Define the start command handler
@@ -29,44 +29,13 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
             file_name = f"{file_id}.mp4"
 
             # Download the video file with progress
-            new_file = await context.bot.get_file(file_id)
-            file_path = new_file.file_path
-            file_size = new_file.file_size
-            chunk_size = 1024 * 1024  # 1 MB
+            await download_video(file_id, file_name, update, context)
 
-            download_progress_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="Downloading video... 0%")
-            previous_progress = 0
-
-            async with aiohttp.ClientSession() as session:
-                async with session.get(file_path) as response:
-                    downloaded_size = 0
-                    with open(file_name, 'wb') as f:
-                        while True:
-                            chunk = await response.content.read(chunk_size)
-                            if not chunk:
-                                break
-                            f.write(chunk)
-                            downloaded_size += len(chunk)
-                            progress = int(10 * downloaded_size / file_size)
-                            if progress != previous_progress:
-                                bar = "▰" * progress + "═" * (10 - progress)
-                                await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=download_progress_message.message_id, text=f"Downloading video... {bar} {progress * 10}%")
-                                previous_progress = progress
-                            await asyncio.sleep(0.5)
-
-            # Check if the video file exists
-            if not os.path.isfile(file_name):
-                raise FileNotFoundError(f"The video file '{file_name}' does not exist.")
-            
             # Generate the screenshots
             screenshots = await generate_screenshots(file_name, update, context)
 
             # Upload the screenshots and get the links
-            links = []
-            for screenshot in screenshots:
-                link = await upload_to_graph(screenshot, update, context)
-                links.append(link)
-                os.remove(screenshot)  # Remove the screenshot after upload
+            links = await upload_screenshots(screenshots, update, context)
 
             # Send the links to the user
             if links:
@@ -84,66 +53,74 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
             # Handle other BadRequest errors
             raise e
     except Exception as e:
-        # Handle any other exceptions
         error_message = f"Error in screenshot function: {str(e)}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
         print(error_message)
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Please send a video.")
 
-async def generate_screenshots(video_file: str, update: telegram.Update, context: CallbackContext) -> list[str]:
+async def download_video(file_id: str, file_name: str, update: telegram.Update, context: CallbackContext) -> None:
     try:
-        # Check if the video file exists
+        new_file = await context.bot.get_file(file_id)
+        file_path = new_file.file_path
+        file_size = new_file.file_size
+        chunk_size = 1024 * 1024  # 1 MB
+
+        download_progress_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="Downloading video... 0%")
+        previous_progress = 0
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(file_path) as response:
+                downloaded_size = 0
+                with open(file_name, 'wb') as f:
+                    while True:
+                        chunk = await response.content.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded_size += len(chunk)
+                        progress = int(10 * downloaded_size / file_size)
+                        if progress != previous_progress:
+                            bar = "▰" * progress + "═" * (10 - progress)
+                            await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=download_progress_message.message_id, text=f"Downloading video... {bar} {progress * 10}%")
+                            previous_progress = progress
+                        await asyncio.sleep(0.5)
+    except Exception as e:
+        error_message = f"Error downloading video: {str(e)}"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+        print(error_message)
+        raise e
+
+async def generate_screenshots(video_file: str, update: telegram.Update, context: CallbackContext) -> list:
+    try:
         if not os.path.isfile(video_file):
             raise FileNotFoundError(f"The video file '{video_file}' does not exist or cannot be accessed.")
-        
-        # Load the video
+
         clip = VideoFileClip(video_file)
-        
-        # Get the video dimensions
         width, height = int(clip.w), int(clip.h)
-        
-        # Get the video duration
         duration = clip.duration
-        
-        # Determine the number of screenshots based on the video duration
-        if duration < 60:  # Less than 1 minute
-            num_screenshots = 5
-        else:
-            num_screenshots = 10
-        
-        # Calculate the time points for screenshots
+        num_screenshots = 5 if duration < 60 else 10
         time_points = np.linspace(0, duration, num_screenshots, endpoint=False)
-        
-        # Send progress indicators for screenshot generation
+
         screenshot_progress_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="Generating screenshots... 0%")
         previous_progress = 0
 
-        # Generate the screenshots
         screenshot_paths = []
         for i, time_point in enumerate(time_points):
             retry_count = 0
             max_retries = 3
             while retry_count < max_retries:
                 try:
-                    # Get the frame at the specified time point
                     frame = clip.get_frame(time_point)
-                    
-                    # Convert the frame to RGB format
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    
-                    # Adjust the color balance to reduce the bluish tone
                     frame_yuv = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
                     frame_yuv[:, :, 1] = frame_yuv[:, :, 1] * 0.8
                     frame_yuv[:, :, 2] = frame_yuv[:, :, 2] * 0.8
                     adjusted_frame = cv2.cvtColor(frame_yuv, cv2.COLOR_YUV2RGB)
-                    
-                    # Resize the frame to a fixed size
                     frame_width = 640
                     frame_height = int(height * frame_width / width)
                     resized_frame = cv2.resize(adjusted_frame, (frame_width, frame_height), interpolation=cv2.INTER_LANCZOS4)
-                    
-                    # Add the watermark to the screenshot
+
                     screenshot = Image.fromarray(resized_frame)
                     draw = ImageDraw.Draw(screenshot)
                     try:
@@ -155,20 +132,18 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
                     text_x = (frame_width - text_width) // 2
                     text_y = frame_height - text_height - 10
                     draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255))
-                    
-                    # Save the screenshot to a file
+
                     screenshot_path = f"screenshot_{update.message.video.file_id}_{i+1}.png"
                     screenshot.save(screenshot_path, optimize=True, quality=95)
                     screenshot_paths.append(screenshot_path)
-                    
-                    # Update the progress message
+
                     progress = int(10 * (i + 1) / num_screenshots)
                     if progress != previous_progress:
                         bar = "▰" * progress + "═" * (10 - progress)
                         await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=screenshot_progress_message.message_id, text=f"Generating screenshots... {bar} {(i+1)*10}%")
                         previous_progress = progress
                     await asyncio.sleep(0.5)
-                    break  # Exit the retry loop if successful
+                    break
                 except cv2.error as e:
                     error_message = f"Error in generate_screenshots loop (retry {retry_count+1}/{max_retries}): {str(e)}"
                     await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
@@ -180,29 +155,34 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
                     print(error_message)
                     retry_count += 1
             else:
-                # If the maximum number of retries is reached, skip the frame
                 error_message = f"Skipping frame {i+1} due to multiple errors."
                 await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
                 print(error_message)
-        
-        # Close the video clip
+
         clip.close()
-        
         return screenshot_paths
-    except FileNotFoundError as e:
-        error_message = f"Error generating screenshots: {str(e)}\nMake sure the video file '{video_file}' exists and has the correct permissions."
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-        print(error_message)
-        raise e
     except Exception as e:
         error_message = f"Error in generate_screenshots function: {str(e)}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
         print(error_message)
         raise e
 
+async def upload_screenshots(screenshot_paths: list, update: telegram.Update, context: CallbackContext) -> list:
+    try:
+        links = []
+        for screenshot in screenshot_paths:
+            link = await upload_to_graph(screenshot, update, context)
+            links.append(link)
+            os.remove(screenshot)  # Remove the screenshot after upload
+        return links
+    except Exception as e:
+        error_message = f"Error in upload_screenshots function: {str(e)}"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+        print(error_message)
+        raise e
+
 async def upload_to_graph(image_path: str, update: telegram.Update, context: CallbackContext) -> str:
     try:
-        # Prepare the upload request to graph.org
         with open(image_path, 'rb') as f:
             files = {'file': f}
             async with aiohttp.ClientSession() as session:
@@ -231,4 +211,3 @@ if __name__ == '__main__':
 
     print("Bot is running...")
     application.run_polling()
-
