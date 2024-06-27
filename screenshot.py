@@ -64,7 +64,7 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
             # Upload the screenshots and get the links
             links = []
             for screenshot in screenshots:
-                link = await upload_to_graph(screenshot)
+                link = await upload_to_graph(screenshot, update, context)
                 links.append(link)
                 os.remove(screenshot)  # Remove the screenshot after upload
 
@@ -150,12 +150,14 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
                         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size=20)
                     except IOError:
                         font = ImageFont.load_default()
-                    text = "@NeonGhost_Networks"
-                    text_x = (frame_width - 200) // 2
-                    text_y = (frame_height - 20) // 2
+                    text = "@YourWatermark"
+                    text_width, text_height = draw.textsize(text, font)
+                    text_x = (frame_width - text_width) // 2
+                    text_y = frame_height - text_height - 10
                     draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255))
                     
-                    screenshot_path = f"screenshot_{video_file}_{i+1}.png"
+                    # Save the screenshot to a file
+                    screenshot_path = f"screenshot_{update.message.video.file_id}_{i+1}.png"
                     screenshot.save(screenshot_path, optimize=True, quality=95)
                     screenshot_paths.append(screenshot_path)
                     
@@ -198,21 +200,35 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
         print(error_message)
         raise e
 
-async def upload_to_graph(file_path: str) -> str:
-    url = "https://graph.org/upload"
-    async with aiohttp.ClientSession() as session:
-        with open(file_path, 'rb') as f:
-            async with session.post(url, data={'file': f}) as response:
-                data = await response.json()
-                return data['url']
+async def upload_to_graph(image_path: str, update: telegram.Update, context: CallbackContext) -> str:
+    try:
+        # Prepare the upload request to graph.org
+        with open(image_path, 'rb') as f:
+            files = {'file': f}
+            async with aiohttp.ClientSession() as session:
+                async with session.post('https://telegra.ph/upload', data=files) as response:
+                    if response.status == 200:
+                        json_response = await response.json()
+                        if isinstance(json_response, list) and len(json_response) > 0 and 'src' in json_response[0]:
+                            file_path = json_response[0]['src']
+                            link = f"https://telegra.ph{file_path}"
+                            return link
+                    raise ValueError(f"Failed to upload {image_path} to graph.org. Response: {response.status}, {await response.text()}")
+    except Exception as e:
+        error_message = f"Error in upload_to_graph function: {str(e)}"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
+        print(error_message)
+        raise e
 
-def main():
+if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
-    
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.VIDEO, screenshot))
-    
+
+    start_handler = CommandHandler('start', start)
+    screenshot_handler = MessageHandler(filters.VIDEO, screenshot)
+
+    application.add_handler(start_handler)
+    application.add_handler(screenshot_handler)
+
+    print("Bot is running...")
     application.run_polling()
 
-if __name__ == "__main__":
-    main()
