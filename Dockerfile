@@ -7,7 +7,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install the dependencies
-RUN apt-get update && apt-get install -y libgl1-mesa-glx
+RUN apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0
 RUN pip install -r requirements.txt
 RUN pip install opencv-python
 
