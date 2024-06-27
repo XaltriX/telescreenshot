@@ -13,5 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of your application code into the container
 COPY . .
 
+# Create a directory for temporary files
+RUN mkdir -p /app/temp
+
 # Run the application
 CMD ["python", "screenshot.py"]
