@@ -14,7 +14,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the script into the container
-COPY bot.py .
+COPY screenshot.py .
 
 # Run the bot
 CMD ["python", "screenshot.py"]
