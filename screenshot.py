@@ -145,8 +145,8 @@ async def upload_to_graph(file_path):
                 if response.status == 200:
                     data = await response.json()
                     print(f"Response data: {data}")
-                    if isinstance(data, list) and len(data) > 0 and "src" in data[[2]]:
-                        return f"https://graph.org{data[[2]]['src']}"
+                    if isinstance(data, list) and len(data) > 0 and "src" in data[0]:
+                        return f"https://graph.org{data[0]['src']}"
                     else:
                         raise ValueError(f"Unexpected response format. Full response: {data}")
                 else:
@@ -162,4 +162,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
