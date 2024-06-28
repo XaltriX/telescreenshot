@@ -7,3 +7,5 @@ numpy
 telegraph
 aiohttp
 colorthief
+telebot
+telegram
