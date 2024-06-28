@@ -8,13 +8,14 @@ from PIL import Image, ImageDraw, ImageFont
 import asyncio
 import aiohttp
 import tempfile
+import json
 
 # Set up the Telegram bot
-TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
+TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'  # Bot token included directly
 bot = telegram.Bot(token=TOKEN)
 
 async def start(update: telegram.Update, context: CallbackContext) -> None:
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Hi! Send me a video to generate screenshots.")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Hi! Send me a video to generate a screenshot collage.")
 
 async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
     if not update.message or not update.message.video:
@@ -28,33 +29,17 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
 
             await download_video(context, update.effective_chat.id, file_id, file_name)
             screenshots = await generate_screenshots(file_name, update, context)
-            
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="Uploading screenshot URLs to a text file...")
-            
-            screenshot_urls = []
-            for i, screenshot in enumerate(screenshots):
-                screenshot_path = os.path.join(temp_dir, f"screenshot_{i+1}.jpg")
-                screenshot.save(screenshot_path, optimize=True, quality=95)
-                
-                graph_url = await upload_to_graph(screenshot_path)
-                screenshot_urls.append(graph_url)
-                await context.bot.send_message(chat_id=update.effective_chat.id, 
-                                               text=f"Screenshot {i+1}/{len(screenshots)} uploaded to graph.org")
+            collage = create_collage(screenshots)
+            collage_path = os.path.join(temp_dir, f"collage_{file_id}.jpg")
+            collage.save(collage_path, optimize=True, quality=95)
 
-            html_file_path = os.path.join(temp_dir, "screenshots.html")
-            await create_html_file(screenshot_urls, html_file_path)
-            
-            # Upload the HTML file and get the URL
-            html_page_url = await upload_to_graph(html_file_path)
-            
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Here is the link to view all screenshots: {html_page_url}")
+            graph_url = await upload_to_graph(collage_path)
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Here's your screenshot collage: {graph_url}")
 
         except Exception as e:
-            error_message = f"Error: {str(e)}\nType: {type(e).__name__}"
+            error_message = f"Error: {str(e)}"
             await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-            print(f"Full error details: {error_message}")
-            import traceback
-            print(traceback.format_exc())
+            print(error_message)
 
 async def download_video(context, chat_id, file_id, file_name):
     new_file = await context.bot.get_file(file_id)
@@ -128,32 +113,36 @@ def resize_and_add_watermark(frame, original_width, original_height):
 
     return screenshot
 
-async def create_html_file(image_urls, file_path):
-    html_content = "<html><body>\n"
-    for url in image_urls:
-        html_content += f'<img src="{url}" style="max-width:100%;"><br>\n'
-    html_content += "</body></html>"
-    
-    with open(file_path, "w") as f:
-        f.write(html_content)
+def create_collage(screenshots):
+    cols = 2
+    rows = (len(screenshots) + 1) // 2
+    collage_width = 640 * cols
+    collage_height = 360 * rows
+    collage = Image.new('RGB', (collage_width, collage_height))
 
-async def upload_to_graph(file_path):
+    for i, screenshot in enumerate(screenshots):
+        x = (i % cols) * 640
+        y = (i // cols) * 360
+        collage.paste(screenshot.resize((640, 360)), (x, y))
+
+    return collage
+
+async def upload_to_graph(image_path):
     url = "https://graph.org/upload"
     
     async with aiohttp.ClientSession() as session:
-        with open(file_path, "rb") as file:
+        with open(image_path, "rb") as file:
             form = aiohttp.FormData()
             form.add_field('file', file)
             async with session.post(url, data=form) as response:
                 if response.status == 200:
                     data = await response.json()
-                    print(f"Response data: {data}")
-                    if isinstance(data, list) and len(data) > 0 and "src" in data[0]:
+                    if data[0].get("src"):
                         return f"https://graph.org{data[0]['src']}"
                     else:
-                        raise ValueError(f"Unexpected response format. Full response: {data}")
+                        raise Exception("Unable to retrieve image link from response")
                 else:
-                    raise Exception(f"Upload failed with status code {response.status}. Response: {await response.text()}")
+                    raise Exception(f"Upload failed with status code {response.status}")
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
