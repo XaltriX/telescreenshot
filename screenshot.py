@@ -36,19 +36,18 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
                 screenshot_path = os.path.join(temp_dir, f"screenshot_{i+1}.jpg")
                 screenshot.save(screenshot_path, optimize=True, quality=95)
                 
-                # Send screenshot to user
-                with open(screenshot_path, 'rb') as photo:
-                    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo, caption=f"Screenshot {i+1}/{len(screenshots)}")
-                
                 graph_url = await upload_to_graph(screenshot_path)
                 screenshot_urls.append(graph_url)
                 await context.bot.send_message(chat_id=update.effective_chat.id, 
                                                text=f"Screenshot {i+1}/{len(screenshots)} uploaded to graph.org")
 
-            url_list_path = os.path.join(temp_dir, "screenshot_urls.txt")
-            await create_url_list(screenshot_urls, url_list_path)
-            await context.bot.send_document(chat_id=update.effective_chat.id, document=open(url_list_path, 'rb'), 
-                                            caption="Here is the list of screenshot URLs.")
+            html_file_path = os.path.join(temp_dir, "screenshots.html")
+            await create_html_file(screenshot_urls, html_file_path)
+            
+            # Upload the HTML file and get the URL
+            html_page_url = await upload_to_graph(html_file_path)
+            
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Here is the link to view all screenshots: {html_page_url}")
 
         except Exception as e:
             error_message = f"Error: {str(e)}\nType: {type(e).__name__}"
@@ -129,10 +128,14 @@ def resize_and_add_watermark(frame, original_width, original_height):
 
     return screenshot
 
-async def create_url_list(image_urls, file_path):
+async def create_html_file(image_urls, file_path):
+    html_content = "<html><body>\n"
+    for url in image_urls:
+        html_content += f'<img src="{url}" style="max-width:100%;"><br>\n'
+    html_content += "</body></html>"
+    
     with open(file_path, "w") as f:
-        for url in image_urls:
-            f.write(url + "\n")
+        f.write(html_content)
 
 async def upload_to_graph(file_path):
     url = "https://graph.org/upload"
