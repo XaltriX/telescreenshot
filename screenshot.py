@@ -78,7 +78,6 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
     for i, time_point in enumerate(time_points):
         frame = clip.get_frame(time_point)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame = adjust_color_balance(frame)
         screenshot = resize_and_add_watermark(frame, width, height)
         screenshots.append(screenshot)
 
@@ -91,24 +90,6 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
 
     clip.close()
     return screenshots
-
-import numpy as np
-
-import cv2
-
-def adjust_color_balance(frame):
-    # Convert the frame to the HSV color space
-    hsv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
-
-    # Adjust the saturation and value channels
-    hsv_frame[:, :, 1] = hsv_frame[:, :, 1] * 0.9  # Reduce saturation by 10%
-    hsv_frame[:, :, 2] = hsv_frame[:, :, 2] * 0.95  # Reduce value (brightness) by 5%
-
-    # Convert the frame back to the RGB color space
-    adjusted_frame = cv2.cvtColor(hsv_frame, cv2.COLOR_HSV2RGB)
-    return adjusted_frame
-
-
 
 def resize_and_add_watermark(frame, original_width, original_height):
     frame_width = 640
