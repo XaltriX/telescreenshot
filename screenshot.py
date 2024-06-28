@@ -137,6 +137,9 @@ async def create_url_list(image_urls, file_path):
 async def upload_to_graph(file_path):
     url = "https://graph.org/upload"
     
+    async def upload_to_graph(file_path):
+    url = "https://graph.org/upload"
+    
     async with aiohttp.ClientSession() as session:
         with open(file_path, "rb") as file:
             form = aiohttp.FormData()
@@ -144,16 +147,17 @@ async def upload_to_graph(file_path):
             async with session.post(url, data=form) as response:
                 if response.status == 200:
                     data = await response.json()
-                    print(f"Response data: {data}")
-                    if data and isinstance(data, list) and len(data) > 0:
-                        if "src" in data[[1]]:
-                            return f"https://graph.org{data[[1]]['src']}"
+                    print(f {data}")
+                    if isinstance(data, dict) and "data
+                        if len(data["data"]) > 0 and "src" in data["data"][[1]]:
+                            return f"https://graph.org{data['data'][[1]]['src']}"
                         else:
                             raise KeyError(f"'src' key not found in response. Full response: {data}")
                     else:
                         raise ValueError(f"Unexpected response format. Full response: {data}")
                 else:
                     raise Exception(f"Upload failed with status code {response.status}. Response: {await response.text()}")
+
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
