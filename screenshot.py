@@ -11,11 +11,11 @@ import tempfile
 import json
 
 # Set up the Telegram bot
-TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'  # Bot token included directly
+TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
 bot = telegram.Bot(token=TOKEN)
 
 async def start(update: telegram.Update, context: CallbackContext) -> None:
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Hi! Send me a video to generate a screenshot collage.")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Hi! Send me a video to generate screenshots.")
 
 async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
     if not update.message or not update.message.video:
@@ -29,12 +29,27 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
 
             await download_video(context, update.effective_chat.id, file_id, file_name)
             screenshots = await generate_screenshots(file_name, update, context)
-            collage = create_collage(screenshots)
-            collage_path = os.path.join(temp_dir, f"collage_{file_id}.jpg")
-            collage.save(collage_path, optimize=True, quality=95)
+            
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="Uploading screenshots to graph.org...")
+            
+            screenshot_urls = []
+            for i, screenshot in enumerate(screenshots):
+                screenshot_path = os.path.join(temp_dir, f"screenshot_{i+1}.jpg")
+                screenshot.save(screenshot_path, optimize=True, quality=95)
+                
+                graph_url = await upload_to_graph(screenshot_path)
+                screenshot_urls.append(graph_url)
+                await context.bot.send_message(chat_id=update.effective_chat.id, 
+                                               text=f"Screenshot {i+1}/{len(screenshots)} uploaded")
 
-            graph_url = await upload_to_graph(collage_path)
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Here's your screenshot collage: {graph_url}")
+            html_content = create_html_page(screenshot_urls)
+            html_path = os.path.join(temp_dir, "screenshots.html")
+            with open(html_path, "w") as f:
+                f.write(html_content)
+
+            final_url = await upload_to_graph(html_path)
+            await context.bot.send_message(chat_id=update.effective_chat.id, 
+                                           text=f"All screenshots have been uploaded successfully!\nView them here: {final_url}")
 
         except Exception as e:
             error_message = f"Error: {str(e)}"
@@ -113,25 +128,39 @@ def resize_and_add_watermark(frame, original_width, original_height):
 
     return screenshot
 
-def create_collage(screenshots):
-    cols = 2
-    rows = (len(screenshots) + 1) // 2
-    collage_width = 640 * cols
-    collage_height = 360 * rows
-    collage = Image.new('RGB', (collage_width, collage_height))
+def create_html_page(image_urls):
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Video Screenshots</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f0f0; }
+            h1 { text-align: center; color: #333; }
+            .gallery { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+            .gallery img { max-width: 100%; height: auto; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        </style>
+    </head>
+    <body>
+        <h1>Video Screenshots</h1>
+        <div class="gallery">
+    """
+    for url in image_urls:
+        html_content += f'        <img src="{url}" alt="Screenshot">\n'
+    html_content += """
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
 
-    for i, screenshot in enumerate(screenshots):
-        x = (i % cols) * 640
-        y = (i // cols) * 360
-        collage.paste(screenshot.resize((640, 360)), (x, y))
-
-    return collage
-
-async def upload_to_graph(image_path):
+async def upload_to_graph(file_path):
     url = "https://graph.org/upload"
     
     async with aiohttp.ClientSession() as session:
-        with open(image_path, "rb") as file:
+        with open(file_path, "rb") as file:
             form = aiohttp.FormData()
             form.add_field('file', file)
             async with session.post(url, data=form) as response:
@@ -140,7 +169,7 @@ async def upload_to_graph(image_path):
                     if data[0].get("src"):
                         return f"https://graph.org{data[0]['src']}"
                     else:
-                        raise Exception("Unable to retrieve image link from response")
+                        raise Exception("Unable to retrieve file link from response")
                 else:
                     raise Exception(f"Upload failed with status code {response.status}")
 
