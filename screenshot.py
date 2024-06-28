@@ -8,7 +8,6 @@ from PIL import Image, ImageDraw, ImageFont
 import asyncio
 import aiohttp
 import tempfile
-import json
 
 # Set up the Telegram bot
 TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
@@ -30,7 +29,7 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
             await download_video(context, update.effective_chat.id, file_id, file_name)
             screenshots = await generate_screenshots(file_name, update, context)
             
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="Uploading screenshots to graph.org...")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="Uploading screenshot URLs to a text file...")
             
             screenshot_urls = []
             for i, screenshot in enumerate(screenshots):
@@ -46,26 +45,10 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
                 await context.bot.send_message(chat_id=update.effective_chat.id, 
                                                text=f"Screenshot {i+1}/{len(screenshots)} uploaded to graph.org")
 
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="Creating HTML page...")
-            html_content = create_html_page(screenshot_urls)
-            html_path = os.path.join(temp_dir, "screenshots.html")
-            with open(html_path, "w") as f:
-                f.write(html_content)
-
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="Uploading HTML page...")
-            try:
-                final_url = await upload_to_graph(html_path)
-                await context.bot.send_message(chat_id=update.effective_chat.id, 
-                                               text=f"All screenshots have been uploaded successfully!\nView them all on one page here: {final_url}")
-            except KeyError as e:
-                await context.bot.send_message(chat_id=update.effective_chat.id, 
-                                               text=f"Error uploading HTML page: {str(e)}")
-            except ValueError as e:
-                await context.bot.send_message(chat_id=update.effective_chat.id, 
-                                               text=f"Unexpected response from graph.org: {str(e)}")
-            except Exception as e:
-                await context.bot.send_message(chat_id=update.effective_chat.id, 
-                                               text=f"Error uploading HTML page: {str(e)}")
+            url_list_path = os.path.join(temp_dir, "screenshot_urls.txt")
+            await create_url_list(screenshot_urls, url_list_path)
+            await context.bot.send_document(chat_id=update.effective_chat.id, document=open(url_list_path, 'rb'), 
+                                            caption="Here is the list of screenshot URLs.")
 
         except Exception as e:
             error_message = f"Error: {str(e)}\nType: {type(e).__name__}"
@@ -146,33 +129,10 @@ def resize_and_add_watermark(frame, original_width, original_height):
 
     return screenshot
 
-def create_html_page(image_urls):
-    html_content = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Video Screenshots</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f0f0; }
-            h1 { text-align: center; color: #333; }
-            .gallery { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
-            .gallery img { max-width: 100%; height: auto; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        </style>
-    </head>
-    <body>
-        <h1>Video Screenshots</h1>
-        <div class="gallery">
-    """
-    for url in image_urls:
-        html_content += f'        <img src="{url}" alt="Screenshot">\n'
-    html_content += """
-        </div>
-    </body>
-    </html>
-    """
-    return html_content
+async def create_url_list(image_urls, file_path):
+    with open(file_path, "w") as f:
+        for url in image_urls:
+            f.write(url + "\n")
 
 async def upload_to_graph(file_path):
     url = "https://graph.org/upload"
@@ -184,10 +144,10 @@ async def upload_to_graph(file_path):
             async with session.post(url, data=form) as response:
                 if response.status == 200:
                     data = await response.json()
-                    print(f"Response data: {data}")  # Print the full response data
+                    print(f"Response data: {data}")
                     if data and isinstance(data, list) and len(data) > 0:
-                        if "src" in data[0]:
-                            return f"https://graph.org{data[0]['src']}"
+                        if "src" in data[[1]]:
+                            return f"https://graph.org{data[[1]]['src']}"
                         else:
                             raise KeyError(f"'src' key not found in response. Full response: {data}")
                     else:
@@ -205,3 +165,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
