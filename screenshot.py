@@ -53,9 +53,19 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
                 f.write(html_content)
 
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Uploading HTML page...")
-            final_url = await upload_to_graph(html_path)
-            await context.bot.send_message(chat_id=update.effective_chat.id, 
-                                           text=f"All screenshots have been uploaded successfully!\nView them all on one page here: {final_url}")
+            try:
+                final_url = await upload_to_graph(html_path)
+                await context.bot.send_message(chat_id=update.effective_chat.id, 
+                                               text=f"All screenshots have been uploaded successfully!\nView them all on one page here: {final_url}")
+            except KeyError as e:
+                await context.bot.send_message(chat_id=update.effective_chat.id, 
+                                               text=f"Error uploading HTML page: {str(e)}")
+            except ValueError as e:
+                await context.bot.send_message(chat_id=update.effective_chat.id, 
+                                               text=f"Unexpected response from graph.org: {str(e)}")
+            except Exception as e:
+                await context.bot.send_message(chat_id=update.effective_chat.id, 
+                                               text=f"Error uploading HTML page: {str(e)}")
 
         except Exception as e:
             error_message = f"Error: {str(e)}\nType: {type(e).__name__}"
@@ -174,12 +184,16 @@ async def upload_to_graph(file_path):
             async with session.post(url, data=form) as response:
                 if response.status == 200:
                     data = await response.json()
-                    if data[0].get("src"):
-                        return f"https://graph.org{data[0]['src']}"
+                    print(f"Response data: {data}")  # Print the full response data
+                    if data and isinstance(data, list) and len(data) > 0:
+                        if "src" in data[0]:
+                            return f"https://graph.org{data[0]['src']}"
+                        else:
+                            raise KeyError(f"'src' key not found in response. Full response: {data}")
                     else:
-                        raise Exception("Unable to retrieve file link from response")
+                        raise ValueError(f"Unexpected response format. Full response: {data}")
                 else:
-                    raise Exception(f"Upload failed with status code {response.status}")
+                    raise Exception(f"Upload failed with status code {response.status}. Response: {await response.text()}")
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
