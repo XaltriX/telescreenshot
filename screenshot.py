@@ -49,8 +49,10 @@ def handle_text(message):
     if not is_user_allowed(message):
         return
     if message.text == "Custom Caption":
-        bot.send_message(message.chat.id, "Please send a video to generate the preview.")
-        bot.register_next_step_handler(message, process_video)
+        keyboard = telebot.types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        keyboard.add("Manual Preview", "Auto Preview")
+        bot.send_message(message.chat.id, "Please choose preview type:", reply_markup=keyboard)
+        bot.register_next_step_handler(message, handle_preview_type)
     elif message.text == "TeraBox Editor":
         bot.send_message(message.chat.id, "Please send one or more images, videos, or GIFs with TeraBox links in the captions.")
     elif message.text == "Cancel":
@@ -58,6 +60,33 @@ def handle_text(message):
         start_message(message)
     else:
         bot.send_message(message.chat.id, "Please choose a valid option from the menu.")
+
+def handle_preview_type(message):
+    if not is_user_allowed(message):
+        return
+    user_id = message.chat.id
+    if message.text == "Manual Preview":
+        user_data[user_id] = {"preview_type": "manual"}
+        bot.send_message(user_id, "Please provide the manual preview link:")
+        bot.register_next_step_handler(message, handle_manual_preview)
+    elif message.text == "Auto Preview":
+        user_data[user_id] = {"preview_type": "auto"}
+        bot.send_message(user_id, "Please send a video to generate the preview.")
+        bot.register_next_step_handler(message, process_video)
+    else:
+        bot.send_message(user_id, "Invalid choice. Please try again.")
+        bot.register_next_step_handler(message, handle_preview_type)
+
+def handle_manual_preview(message):
+    if not is_user_allowed(message):
+        return
+    user_id = message.chat.id
+    if user_id in user_data:
+        user_data[user_id]["preview_link"] = message.text
+        bot.send_message(user_id, "Please provide a custom caption for the video.")
+        bot.register_next_step_handler(message, handle_caption)
+    else:
+        bot.send_message(message.chat.id, "Please start the process again by typing /start.")
 
 # Handler to process the video for custom caption
 def process_video(message):
@@ -80,9 +109,9 @@ def process_video(message):
             collage.save(collage_path, optimize=True, quality=95)
             
             graph_url = upload_to_graph(collage_path)
-            user_data[user_id] = {"preview_link": graph_url}
+            user_data[user_id]["preview_link"] = graph_url
             
-            bot.send_message(user_id, "Preview generated. Please provide a custom caption for the video or type 'Cancel' to exit.")
+            bot.send_message(user_id, "Preview generated. Please provide a custom caption for the video.")
             bot.register_next_step_handler(message, handle_caption)
         finally:
             os.unlink(temp_file_path)
@@ -163,8 +192,7 @@ def handle_caption(message):
         return
     user_id = message.chat.id
     if user_id in user_data:
-        caption = message.text
-        user_data[user_id]["caption"] = caption
+        user_data[user_id]["caption"] = message.text
         bot.send_message(message.chat.id, "Please provide a link to add in the caption or type 'Cancel' to exit.")
         bot.register_next_step_handler(message, handle_link)
     else:
@@ -296,22 +324,23 @@ def process_media(message, media_type):
         keyboard.add(telebot.types.InlineKeyboardButton("Movie Group🔞🎥", url="https://t.me/RequestGroupNG"))
         keyboard.add(telebot.types.InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/+ZgpjbYx8dGZjODI9"))
 
-        # Send back the media with the TeraBox links and buttons
-        with open(media_filename, 'rb') as media:
-            if media_type == 'photo':
-                bot.send_photo(user_id, media, caption=formatted_caption, reply_markup=keyboard)
-            elif media_type == 'video':
-                bot.send_video(user_id, media, caption=formatted_caption, reply_markup=keyboard)
-            elif media_type == 'gif':
-                bot.send_document(user_id, media, caption=formatted_caption, reply_markup=keyboard)
+        # Send the media with the formatted caption and buttons
+        if media_type == 'photo':
+            with open(media_filename, 'rb') as photo:
+                bot.send_photo(user_id, photo, caption=formatted_caption, reply_markup=keyboard)
+        elif media_type == 'video':
+            with open(media_filename, 'rb') as video:
+                bot.send_video(user_id, video, caption=formatted_caption, reply_markup=keyboard)
+        elif media_type == 'gif':
+            with open(media_filename, 'rb') as gif:
+                bot.send_document(user_id, gif, caption=formatted_caption, reply_markup=keyboard)
 
     except Exception as e:
         bot.send_message(user_id, f"Sorry, there was an error processing your request: {e}")
-
     finally:
-        # Remove the local file after sending
+        # Clean up the temporary file
         if os.path.exists(media_filename):
             os.remove(media_filename)
 
-# Start polling for messages
+# Start the bot
 bot.polling()
