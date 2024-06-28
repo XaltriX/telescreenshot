@@ -310,7 +310,7 @@ def process_media(message, media_type):
             "≿━━━━━━━༺❀༻━━━━━━≾\n\n"
         )
 
-       if len(terabox_links) == 1:
+        if len(terabox_links) == 1:
             formatted_caption += f"➽───❥🔗𝐅𝐮𝐥𝐥 𝐕𝐢𝐝𝐞𝐨 𝐋𝐢𝐧𝐤:🔗 {terabox_links[0]}\n\n"
         else:
             for idx, link in enumerate(terabox_links, start=1):
