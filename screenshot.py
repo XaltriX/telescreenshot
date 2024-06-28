@@ -9,6 +9,7 @@ import asyncio
 import aiohttp
 import tempfile
 import json
+from colorthief import ColorThief
 
 # Set up the Telegram bot
 TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'  # Bot token included directly
@@ -28,7 +29,7 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
             file_name = os.path.join(temp_dir, f"{file_id}.mp4")
 
             await download_video(context, update.effective_chat.id, file_id, file_name)
-            screenshots = await generate_screenshots(file_name, update, context)
+            screenshots = await generate_screenshots(file_name, update, context, temp_dir)
             collage = create_collage(screenshots)
             collage_path = os.path.join(temp_dir, f"collage_{file_id}.jpg")
             collage.save(collage_path, optimize=True, quality=95)
@@ -64,7 +65,7 @@ async def download_video(context, chat_id, file_id, file_name):
                                                             text=f"Downloading video... {bar} {progress * 10}%")
                         previous_progress = progress
 
-async def generate_screenshots(video_file: str, update: telegram.Update, context: CallbackContext) -> list[Image.Image]:
+async def generate_screenshots(video_file: str, update: telegram.Update, context: CallbackContext, temp_dir: str) -> list[Image.Image]:
     clip = VideoFileClip(video_file)
     width, height = int(clip.w), int(clip.h)
     duration = clip.duration
@@ -76,9 +77,8 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
 
     screenshots = []
     for i, time_point in enumerate(time_points):
-        frame = clip.get_frame(time_point)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        screenshot = resize_and_add_watermark(frame, width, height)
+        screenshot = Image.fromarray(clip.save_frame(os.path.join(temp_dir, f"frame_{i}.png"), time_point))
+        screenshot = resize_and_add_watermark(screenshot, width, height)
         screenshots.append(screenshot)
 
         progress = int(10 * (i + 1) / num_screenshots)
@@ -91,20 +91,19 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
     clip.close()
     return screenshots
 
-def resize_and_add_watermark(frame, original_width, original_height):
+def resize_and_add_watermark(screenshot: Image.Image, original_width: int, original_height: int) -> Image.Image:
     frame_width = 640
     frame_height = int(original_height * frame_width / original_width)
-    resized_frame = cv2.resize(frame, (frame_width, frame_height), interpolation=cv2.INTER_LANCZOS4)
+    resized_screenshot = screenshot.resize((frame_width, frame_height), resample=Image.LANCZOS)
 
-    screenshot = Image.fromarray(resized_frame)
-    draw = ImageDraw.Draw(screenshot)
+    draw = ImageDraw.Draw(resized_screenshot)
     font = ImageFont.load_default()
     text = "@NeonGhost_Networks"
     text_x = (frame_width - 200) // 2
     text_y = (frame_height - 20) // 2
     draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255))
 
-    return screenshot
+    return resized_screenshot
 
 def create_collage(screenshots):
     cols = 2
