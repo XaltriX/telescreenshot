@@ -37,24 +37,32 @@ async def screenshot(update: telegram.Update, context: CallbackContext) -> None:
                 screenshot_path = os.path.join(temp_dir, f"screenshot_{i+1}.jpg")
                 screenshot.save(screenshot_path, optimize=True, quality=95)
                 
+                # Send screenshot to user
+                with open(screenshot_path, 'rb') as photo:
+                    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo, caption=f"Screenshot {i+1}/{len(screenshots)}")
+                
                 graph_url = await upload_to_graph(screenshot_path)
                 screenshot_urls.append(graph_url)
                 await context.bot.send_message(chat_id=update.effective_chat.id, 
-                                               text=f"Screenshot {i+1}/{len(screenshots)} uploaded")
+                                               text=f"Screenshot {i+1}/{len(screenshots)} uploaded to graph.org")
 
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="Creating HTML page...")
             html_content = create_html_page(screenshot_urls)
             html_path = os.path.join(temp_dir, "screenshots.html")
             with open(html_path, "w") as f:
                 f.write(html_content)
 
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="Uploading HTML page...")
             final_url = await upload_to_graph(html_path)
             await context.bot.send_message(chat_id=update.effective_chat.id, 
-                                           text=f"All screenshots have been uploaded successfully!\nView them here: {final_url}")
+                                           text=f"All screenshots have been uploaded successfully!\nView them all on one page here: {final_url}")
 
         except Exception as e:
-            error_message = f"Error: {str(e)}"
+            error_message = f"Error: {str(e)}\nType: {type(e).__name__}"
             await context.bot.send_message(chat_id=update.effective_chat.id, text=error_message)
-            print(error_message)
+            print(f"Full error details: {error_message}")
+            import traceback
+            print(traceback.format_exc())
 
 async def download_video(context, chat_id, file_id, file_name):
     new_file = await context.bot.get_file(file_id)
