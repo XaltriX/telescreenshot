@@ -94,16 +94,20 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
 
 import numpy as np
 
-def adjust_color_balance(frame):
-    # Create a lookup table to adjust the color balance
-    lut = np.zeros((256, 1, 3), dtype=np.uint8)
-    lut[:, 0, 0] = np.linspace(0, 255, 256) * 0.9  # Reduce the red channel
-    lut[:, 0, 1] = np.linspace(0, 255, 256) * 0.95  # Reduce the green channel
-    lut[:, 0, 2] = np.linspace(0, 255, 256)  # Keep the blue channel unchanged
+import cv2
 
-    # Apply the lookup table to the frame
-    adjusted_frame = cv2.LUT(frame, lut)
+def adjust_color_balance(frame):
+    # Convert the frame to the HSV color space
+    hsv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
+
+    # Adjust the saturation and value channels
+    hsv_frame[:, :, 1] = hsv_frame[:, :, 1] * 0.9  # Reduce saturation by 10%
+    hsv_frame[:, :, 2] = hsv_frame[:, :, 2] * 0.95  # Reduce value (brightness) by 5%
+
+    # Convert the frame back to the RGB color space
+    adjusted_frame = cv2.cvtColor(hsv_frame, cv2.COLOR_HSV2RGB)
     return adjusted_frame
+
 
 
 def resize_and_add_watermark(frame, original_width, original_height):
