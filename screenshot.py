@@ -51,6 +51,7 @@ def handle_text(message):
     if message.text == "Custom Caption":
         keyboard = telebot.types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
         keyboard.add("Manual Preview", "Auto Preview")
+        keyboard.add("Cancel")
         bot.send_message(message.chat.id, "Please choose preview type:", reply_markup=keyboard)
         bot.register_next_step_handler(message, handle_preview_type)
     elif message.text == "TeraBox Editor":
@@ -73,6 +74,9 @@ def handle_preview_type(message):
         user_data[user_id] = {"preview_type": "auto"}
         bot.send_message(user_id, "Please send a video to generate the preview.")
         bot.register_next_step_handler(message, process_video)
+    elif message.text == "Cancel":
+        bot.send_message(message.chat.id, "Process canceled. Please choose a feature from the menu.")
+        start_message(message)
     else:
         bot.send_message(user_id, "Invalid choice. Please try again.")
         bot.register_next_step_handler(message, handle_preview_type)
@@ -218,129 +222,21 @@ def handle_link(message):
             f"   @NeonGhost_Networks\n"
             f"◇──◆──◇──◆  ◇──◆──◇──◆\n\n"
             f"╰┈┈➤ 🚨 {caption} 🚨\n\n"
-            f"╰┈┈┈┈┈➤ 🔗 Preview Link: {preview_link}\n\n"
-            f"╰┈┈┈┈┈┈┈┈➤ 💋 🔗🤞 Full Video Link: {link} 🔞🤤\n"
+            f"🔗 Preview: [here]({preview_link})\n"
+            f"🔗 Link: [here]({link})\n\n"
+            f"⚡️ @NeonGhost_Networks\n"
+            f"⚡️ @NeonGhost_Networks\n"
         )
 
-        # Inline keyboard for additional links
-        keyboard = telebot.types.InlineKeyboardMarkup()
-        keyboard.add(telebot.types.InlineKeyboardButton("18+ Bot🤖🔞", url="https://t.me/new_leakx_mms_bot"))
-        keyboard.add(telebot.types.InlineKeyboardButton("More Videos🔞🎥", url="https://t.me/+H6sxjIpsz-cwYjQ0"))
-        keyboard.add(telebot.types.InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/+ZgpjbYx8dGZjODI9"))
+        bot.send_message(message.chat.id, "Caption with link formatted. Here is the preview:", disable_web_page_preview=False)
+        bot.send_message(message.chat.id, formatted_caption, disable_web_page_preview=False)
 
-        # Send back the cover photo with the custom caption and buttons
-        try:
-            bot.send_photo(user_id, THUMBNAIL_URL, caption=formatted_caption, reply_markup=keyboard)
-        except Exception as e:
-            bot.send_message(user_id, f"Sorry, there was an error processing your request: {e}")
-        finally:
-            # Cleanup user_data
-            del user_data[user_id]
-            # Restart the process for the next post
-            bot.send_message(user_id, "Please send a video for the next post or type 'Cancel' to exit.")
-            bot.register_next_step_handler(message, process_video)
+        # Clean up user data
+        user_data.pop(user_id, None)
+        bot.send_message(message.chat.id, "Process completed. Please choose a feature from the menu.")
+        start_message(message)
     else:
         bot.send_message(message.chat.id, "Please start the process again by typing /start.")
-
-# Handler to process images, videos, and GIFs with captions (TeraBox Editor)
-@bot.message_handler(content_types=['photo', 'video', 'document'])
-def handle_media(message):
-    if not is_user_allowed(message):
-        return
-    user_id = message.chat.id
-    media_type = message.content_type
-
-    if media_type == 'photo':
-        process_media(message, 'photo')
-    elif media_type == 'video':
-        process_media(message, 'video')
-    elif media_type == 'document':
-        # Check if the document is a GIF
-        if message.document.mime_type == 'image/gif':
-            process_media(message, 'gif')
-        else:
-            bot.send_message(message.chat.id, "Unsupported document type. Please send images, videos, or GIFs.")
-    else:
-        bot.send_message(message.chat.id, "Unsupported media type. Please send images, videos, or GIFs.")
-
-def process_media(message, media_type):
-    user_id = message.chat.id
-
-    try:
-        if media_type == 'photo':
-            file_id = message.photo[-1].file_id
-        elif media_type == 'video':
-            file_id = message.video.file_id
-        elif media_type == 'gif':
-            file_id = message.document.file_id
-
-        file_info = bot.get_file(file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-
-        # Save the file to a local path
-        if media_type == 'photo':
-            media_filename = f"media_{file_id}.jpg"
-        elif media_type == 'video':
-            media_filename = f"media_{file_id}.mp4"
-        elif media_type == 'gif':
-            media_filename = f"media_{file_id}.gif"
-
-        with open(media_filename, 'wb') as media_file:
-            media_file.write(downloaded_file)
-
-        # Use regex to find any link containing "terabox" in the caption
-        text = message.caption  # Get the caption text
-        if not text:
-            bot.send_message(user_id, "No caption provided. Please start again by typing /start.")
-            return
-
-        # Use regex to find all links containing "terabox" in the caption
-        terabox_links = re.findall(r'https?://\S*terabox\S*', text, re.IGNORECASE)
-        if not terabox_links:
-            bot.send_message(user_id, "No valid TeraBox link found in the caption. Please try again.")
-            return
-
-        # Format the caption with the TeraBox links
-        formatted_caption = (
-            f"⚝─────⭒─⭑─⭒──────⚝\n"
-            "  👉  ​🇼​​🇪​​🇱​​🇨​​🇴​​🇲​​🇪​❗ 👈\n"
-            " ⚝─────⭒─⭑─⭒──────⚝\n\n"
-            "≿━━━━━━━༺❀༻━━━━━━≾\n"
-            f"📥  𝐉𝐎𝐈𝐍 𝐔𝐒 :– @NeonGhost_Networks\n"
-            "≿━━━━━━━༺❀༻━━━━━━≾\n\n"
-        )
-
-        if len(terabox_links) == 1:
-            formatted_caption += f"➽───❥🔗𝐅𝐮𝐥𝐥 𝐕𝐢𝐝𝐞𝐨 𝐋𝐢𝐧𝐤:🔗 {terabox_links[0]}\n\n"
-        else:
-            for idx, link in enumerate(terabox_links, start=1):
-                formatted_caption += f"➽───❥🔗𝐕𝐢𝐝𝐞𝐨 𝐋𝐢𝐧𝐤 {idx}:🔗 {link}\n\n"
-
-        formatted_caption += "─❚█═𝑩𝒚 𝑵𝒆𝒐𝒏𝑮𝒉𝒐𝒔𝒕 𝑵𝒆𝒕𝒘𝒐𝒓𝒌𝒔═█❚─"
-
-        # Inline keyboard for additional links
-        keyboard = telebot.types.InlineKeyboardMarkup()
-        keyboard.add(telebot.types.InlineKeyboardButton("How To Watch & Download 🔞", url="https://t.me/HTDTeraBox/5"))
-        keyboard.add(telebot.types.InlineKeyboardButton("Movie Group🔞🎥", url="https://t.me/RequestGroupNG"))
-        keyboard.add(telebot.types.InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/+ZgpjbYx8dGZjODI9"))
-
-        # Send the media with the formatted caption and buttons
-        if media_type == 'photo':
-            with open(media_filename, 'rb') as photo:
-                bot.send_photo(user_id, photo, caption=formatted_caption, reply_markup=keyboard)
-        elif media_type == 'video':
-            with open(media_filename, 'rb') as video:
-                bot.send_video(user_id, video, caption=formatted_caption, reply_markup=keyboard)
-        elif media_type == 'gif':
-            with open(media_filename, 'rb') as gif:
-                bot.send_document(user_id, gif, caption=formatted_caption, reply_markup=keyboard)
-
-    except Exception as e:
-        bot.send_message(user_id, f"Sorry, there was an error processing your request: {e}")
-    finally:
-        # Clean up the temporary file
-        if os.path.exists(media_filename):
-            os.remove(media_filename)
 
 # Start the bot
 bot.polling()
