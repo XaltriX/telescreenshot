@@ -92,11 +92,19 @@ async def generate_screenshots(video_file: str, update: telegram.Update, context
     clip.close()
     return screenshots
 
+import numpy as np
+
 def adjust_color_balance(frame):
-    frame_yuv = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
-    frame_yuv[:, :, 1] = frame_yuv[:, :, 1] * 0.8
-    frame_yuv[:, :, 2] = frame_yuv[:, :, 2] * 0.8
-    return cv2.cvtColor(frame_yuv, cv2.COLOR_YUV2RGB)
+    # Create a lookup table to adjust the color balance
+    lut = np.zeros((256, 1, 3), dtype=np.uint8)
+    lut[:, 0, 0] = np.linspace(0, 255, 256) * 0.9  # Reduce the red channel
+    lut[:, 0, 1] = np.linspace(0, 255, 256) * 0.95  # Reduce the green channel
+    lut[:, 0, 2] = np.linspace(0, 255, 256)  # Keep the blue channel unchanged
+
+    # Apply the lookup table to the frame
+    adjusted_frame = cv2.LUT(frame, lut)
+    return adjusted_frame
+
 
 def resize_and_add_watermark(frame, original_width, original_height):
     frame_width = 640
