@@ -120,15 +120,22 @@ def process_video(message):
         downloaded_file = bot.download_file(file_info.file_path)
         bot.edit_message_text("Downloading video: 100%", user_id, download_msg.message_id)
         
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
-            temp_file.write(downloaded_file)
-            temp_file_path = temp_file.name
+        temp_file_path = None
+        collage_path = None
         
         try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
+                temp_file.write(downloaded_file)
+                temp_file_path = temp_file.name
+            
             # Generate screenshots progress
             screenshot_msg = bot.send_message(user_id, "Generating screenshots: 0%")
             screenshots = generate_screenshots(temp_file_path, user_id, screenshot_msg.message_id)
-            bot.edit_message_text("Generating screenshots: 100%", user_id, screenshot_msg.message_id)
+            try:
+                bot.edit_message_text("Generating screenshots: 100%", user_id, screenshot_msg.message_id)
+            except telebot.apihelper.ApiTelegramException as e:
+                if "message is not modified" not in str(e):
+                    raise
             
             collage = create_collage(screenshots)
             collage_path = f"{temp_file_path}_collage.jpg"
@@ -143,9 +150,12 @@ def process_video(message):
             
             bot.send_message(user_id, "Preview generated. Please provide a custom caption for the video.", reply_markup=get_cancel_keyboard())
             bot.register_next_step_handler(message, handle_caption)
+        except Exception as e:
+            bot.send_message(user_id, f"An error occurred: {str(e)}")
         finally:
-            os.unlink(temp_file_path)
-            if os.path.exists(collage_path):
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+            if collage_path and os.path.exists(collage_path):
                 os.unlink(collage_path)
     else:
         bot.send_message(message.chat.id, "Please send a video. Try again or type 'Cancel' to exit.", reply_markup=get_cancel_keyboard())
