@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 import requests
+from io import BytesIO
 from moviepy.editor import VideoFileClip
 import cv2
 import numpy as np
@@ -114,10 +115,30 @@ def process_video(message):
         user_id = message.chat.id
         file_id = message.video.file_id
         file_info = bot.get_file(file_id)
-        
+        file_path = file_info.file_path
+        file_size = message.video.file_size
+
         # Download progress
         download_msg = bot.send_message(user_id, "Downloading video: 0%")
-        downloaded_file = bot.download_file(file_info.file_path)
+        
+        # Use requests to download the file in chunks
+        response = requests.get(f"https://api.telegram.org/file/bot{TOKEN}/{file_path}", stream=True)
+        chunk_size = 1024 * 1024  # 1 MB chunks
+        total_chunks = file_size // chunk_size + 1
+        downloaded_chunks = 0
+        video_data = BytesIO()
+
+        for chunk in response.iter_content(chunk_size=chunk_size):
+            if chunk:
+                video_data.write(chunk)
+                downloaded_chunks += 1
+                progress = int((downloaded_chunks / total_chunks) * 100)
+                try:
+                    bot.edit_message_text(f"Downloading video: {progress}%", user_id, download_msg.message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    if "message is not modified" not in str(e):
+                        raise
+
         bot.edit_message_text("Downloading video: 100%", user_id, download_msg.message_id)
         
         temp_file_path = None
@@ -125,7 +146,7 @@ def process_video(message):
         
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
-                temp_file.write(downloaded_file)
+                temp_file.write(video_data.getvalue())
                 temp_file_path = temp_file.name
             
             # Generate screenshots progress
@@ -316,7 +337,14 @@ def process_media(message, media_type):
             file_id = message.document.file_id
 
         file_info = bot.get_file(file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
+        file_path = file_info.file_path
+
+        # Download the file in chunks
+        response = requests.get(f"https://api.telegram.org/file/bot{TOKEN}/{file_path}", stream=True)
+        media_data = BytesIO()
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                media_data.write(chunk)
 
         # Save the file to a local path
         if media_type == 'photo':
@@ -327,7 +355,7 @@ def process_media(message, media_type):
             media_filename = f"media_{file_id}.gif"
 
         with open(media_filename, 'wb') as new_file:
-            new_file.write(downloaded_file)
+            new_file.write(media_data.getvalue())
 
         # Process the caption
         original_caption = message.caption or ""
@@ -376,3 +404,4 @@ def process_terabox_link(caption):
 
 # Start the bot
 bot.polling()
+        
