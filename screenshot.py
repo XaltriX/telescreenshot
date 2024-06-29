@@ -363,6 +363,9 @@ def process_terabox_link(caption):
     
     # Find all TeraBox links in the caption
     terabox_links = re.findall(terabox_pattern, caption)
+
+    # Debug: print the detected links
+    print(f"Detected TeraBox links: {terabox_links}")
     
     # Generate the formatted caption
     formatted_caption = (
@@ -383,6 +386,20 @@ def process_terabox_link(caption):
     formatted_caption += "─❚█═𝑩𝒚 𝑵𝒆𝒐𝒏𝑮𝒉𝒐𝒔𝒕 𝑵𝒆𝒕𝒘𝒐𝒓𝒌𝒔═█❚─"
     
     return formatted_caption
+
+# Define handlers for different media types
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
+    process_media(message, 'photo')
+
+@bot.message_handler(content_types=['video'])
+def handle_video(message):
+    process_media(message, 'video')
+
+@bot.message_handler(content_types=['document'])
+def handle_gif(message):
+    if message.document.mime_type == 'video/mp4':
+        process_media(message, 'gif')
 
 
 # Start the bot
