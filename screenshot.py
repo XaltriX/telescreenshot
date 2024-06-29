@@ -128,16 +128,27 @@ def process_video(message):
         downloaded_chunks = 0
         video_data = BytesIO()
 
+        last_progress = 0
         for chunk in response.iter_content(chunk_size=chunk_size):
             if chunk:
                 video_data.write(chunk)
                 downloaded_chunks += 1
                 progress = int((downloaded_chunks / total_chunks) * 100)
-                try:
-                    bot.edit_message_text(f"Downloading video: {progress}%", user_id, download_msg.message_id)
-                except telebot.apihelper.ApiTelegramException as e:
-                    if "message is not modified" not in str(e):
-                        raise
+                if progress > last_progress:
+                    try:
+                        bot.edit_message_text(f"Downloading video: {progress}%", user_id, download_msg.message_id)
+                        last_progress = progress
+                    except telebot.apihelper.ApiTelegramException as e:
+                        if "message is not modified" not in str(e):
+                            raise
+
+        try:
+            bot.edit_message_text("Downloading video: 100%", user_id, download_msg.message_id)
+        except telebot.apihelper.ApiTelegramException as e:
+            if "message is not modified" not in str(e):
+                raise
+
+        # Rest of your function...
 
         bot.edit_message_text("Downloading video: 100%", user_id, download_msg.message_id)
         
