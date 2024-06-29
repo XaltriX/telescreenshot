@@ -326,80 +326,56 @@ def process_media(message, media_type):
         elif media_type == 'gif':
             media_filename = f"media_{file_id}.gif"
 
-        with open(media_filename, 'wb') as new_file:
-            new_file.write(downloaded_file)
+        with open(media_filename, 'wb') as media_file:
+            media_file.write(downloaded_file)
 
-        # Process the caption
-        original_caption = message.caption or ""
-        processed_caption = process_terabox_link(original_caption)
+        # Use regex to find any link containing "terabox" in the caption
+        text = message.caption  # Get the caption text
+        if not text:
+            bot.send_message(user_id, "No caption provided. Please start again by typing /start.")
+            return
 
-        # Create an inline keyboard
-        keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton("How To Watch & Download 🔞", url="https://t.me/HTDTeraBox/5"))
-        keyboard.add(InlineKeyboardButton("Movie Group🔞🎥", url="https://t.me/RequestGroupNG"))
-        keyboard.add(InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/+ZgpjbYx8dGZjODI9"))
+        # Use regex to find all links containing "terabox" in the caption
+        terabox_links = re.findall(r'https?://\S*terabox\S*', text, re.IGNORECASE)
+        if not terabox_links:
+            bot.send_message(user_id, "No valid TeraBox link found in the caption. Please try again.")
+            return
 
-        # Send the media with the processed caption and inline keyboard
-        if media_type == 'photo':
-            with open(media_filename, 'rb') as photo:
-                bot.send_photo(user_id, photo, caption=processed_caption, reply_markup=keyboard)
-        elif media_type == 'video':
-            with open(media_filename, 'rb') as video:
-                bot.send_video(user_id, video, caption=processed_caption, reply_markup=keyboard)
-        elif media_type == 'gif':
-            with open(media_filename, 'rb') as gif:
-                bot.send_document(user_id, gif, caption=processed_caption, reply_markup=keyboard)
+        # Format the caption with the TeraBox links
+        formatted_caption = (
+            f"⚝─────⭒─⭑─⭒──────⚝\n"
+            "  👉  ​🇼​​🇪​​🇱​​🇨​​🇴​​🇲​​🇪​❗ 👈\n"
+            " ⚝─────⭒─⭑─⭒──────⚝\n\n"
+            "≿━━━━━━━༺❀༻━━━━━━≾\n"
+            f"📥  𝐉𝐎𝐈𝐍 𝐔𝐒 :– @NeonGhost_Networks\n"
+            "≿━━━━━━━༺❀༻━━━━━━≾\n\n"
+        )
+
+        if len(terabox_links) == 1:
+            formatted_caption += f"➽───❥🔗𝐅𝐮𝐥𝐥 𝐕𝐢𝐝𝐞𝐨 𝐋𝐢𝐧𝐤:🔗 {terabox_links[0]}\n\n"
+        else:
+            for idx, link in enumerate(terabox_links, start=1):
+                formatted_caption += f"➽───❥🔗𝐕𝐢𝐝𝐞𝐨 𝐋𝐢𝐧𝐤 {idx}:🔗 {link}\n\n"
+
+        formatted_caption += "─❚█═𝑩𝒚 𝑵𝒆𝒐𝒏𝑮𝒉𝒐𝒔𝒕 𝑵𝒆𝒕𝒘𝒐𝒓𝒌𝒔═█❚─"
+
+        # Inline keyboard for additional links
+        keyboard = telebot.types.InlineKeyboardMarkup()
+        keyboard.add(telebot.types.InlineKeyboardButton("How To Watch & Download 🔞", url="https://t.me/HTDTeraBox/5"))
+        keyboard.add(telebot.types.InlineKeyboardButton("Movie Group🔞🎥", url="https://t.me/RequestGroupNG"))
+        keyboard.add(telebot.types.InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/+ZgpjbYx8dGZjODI9"))
+
+        # Send back the media with the TeraBox links and buttons
+        with open(media_filename, 'rb') as media:
+            if media_type == 'photo':
+                bot.send_photo(user_id, media, caption=formatted_caption, reply_markup=keyboard)
+            elif media_type == 'video':
+                bot.send_video(user_id, media, caption=formatted_caption, reply_markup=keyboard)
+            elif media_type == 'gif':
+                bot.send_document(user_id, media, caption=formatted_caption, reply_markup=keyboard)
 
     except Exception as e:
-        bot.reply_to(message, f"An error occurred: {str(e)}")
-    finally:
-        # Clean up the temporary file
-        if os.path.exists(media_filename):
-            os.remove(media_filename)
-
-def process_terabox_link(caption):
-    # Regular expression to match TeraBox links
-    terabox_pattern = r'(https?://(?:www\.)?terabox\.com/[^\s]+)'
-    
-    # Find all TeraBox links in the caption
-    terabox_links = re.findall(terabox_pattern, caption)
-
-    # Debug: print the detected links
-    print(f"Detected TeraBox links: {terabox_links}")
-    
-    # Generate the formatted caption
-    formatted_caption = (
-        f"⚝─────⭒─⭑─⭒──────⚝\n"
-        "  👉  ​🇼​​🇪​​🇱​​🇨​​🇴​​🇲​​🇪​❗ 👈\n"
-        " ⚝─────⭒─⭑─⭒──────⚝\n\n"
-        "≿━━━━━━━༺❀༻━━━━━━≾\n"
-        f"📥  𝐉𝐎𝐈𝐍 𝐔𝐒 :– @NeonGhost_Networks\n"
-        "≿━━━━━━━༺❀༻━━━━━━≾\n\n"
-    )
-
-    if len(terabox_links) == 1:
-        formatted_caption += f"➽───❥🔗𝐅𝐮𝐥𝐥 𝐕𝐢𝐝𝐞𝐨 𝐋𝐢𝐧𝐤:🔗 {terabox_links[0]}\n\n"
-    else:
-        for idx, link in enumerate(terabox_links, start=1):
-            formatted_caption += f"➽───❥🔗𝐕𝐢𝐝𝐞𝐨 𝐋𝐢𝐧𝐤 {idx}:🔗 {link}\n\n"
-
-    formatted_caption += "─❚█═𝑩𝒚 𝑵𝒆𝒐𝒏𝑮𝒉𝒐𝒔𝒕 𝑵𝒆𝒕𝒘𝒐𝒓𝒌𝒔═█❚─"
-    
-    return formatted_caption
-
-# Define handlers for different media types
-@bot.message_handler(content_types=['photo'])
-def handle_photo(message):
-    process_media(message, 'photo')
-
-@bot.message_handler(content_types=['video'])
-def handle_video(message):
-    process_media(message, 'video')
-
-@bot.message_handler(content_types=['document'])
-def handle_gif(message):
-    if message.document.mime_type == 'video/mp4':
-        process_media(message, 'gif')
+        bot.send_message(user_id, f"Sorry, there was an error processing your request: {e}")
 
 
 # Start the bot
