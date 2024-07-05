@@ -138,6 +138,11 @@ def process_video(message):
         delete_tracked_messages(message.chat.id)
         start_message(message)
         return
+    if message.content_type == 'text':
+        msg = bot.send_message(message.chat.id, "Please send a video file, not text. Try again or type 'Cancel' to exit.", reply_markup=get_cancel_keyboard())
+        track_message(message.chat.id, msg.message_id)
+        bot.register_next_step_handler(message, process_video)
+        return
     if message.video:
         user_id = message.chat.id
         file_id = message.video.file_id
@@ -200,7 +205,6 @@ def process_video(message):
         track_message(message.chat.id, msg.message_id)
         bot.register_next_step_handler(message, process_video)
 
-# ... [The rest of the code continues in the next message due to length limitations] ...
 def generate_screenshots(video_file, user_id, message_id):
     clip = VideoFileClip(video_file)
     duration = clip.duration
@@ -282,38 +286,18 @@ def handle_caption(message):
         track_message(message.chat.id, msg.message_id)
 
 def handle_link(message):
-    if not is_user_allowed(message):
-        return
-    if message.text == "Cancel":
-        delete_tracked_messages(message.chat.id)
-        start_message(message)
-        return
-    user_id = message.chat.id
-    if user_id in user_data:
-        preview_link = user_data[user_id]["preview_link"]
-        caption = user_data[user_id]["caption"]
-        link = message.text
-
-        formatted_caption = (
-            f"◇──◆──◇──◆  ◇──◆──◇──◆\n"
-            f"   @NeonGhost_Networks\n"
-            f"◇──◆──◇──◆  ◇──◆──◇──◆\n\n"
-            f"╰┈┈➤ 🚨 {caption} 🚨\n\n"
-            f"╰┈┈┈┈┈➤ 🔗 Preview Link: {preview_link}\n\n"
-            f"╰┈┈┈┈┈┈┈┈➤ 💋 🔗🤞 Full Video Link: {link} 🔞🤤\n"
-        )
-
-        keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton("18+ Bot🤖🔞", url="https://t.me/new_leakx_mms_bot"))
-        keyboard.add(InlineKeyboardButton("More Videos🔞🎥", url="https://t.me/+H6sxjIpsz-cwYjQ0"))
-        keyboard.add(InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/+ZgpjbYx8dGZjODI9"))
+    # ... [previous part of the function] ...
 
         try:
             final_post = bot.send_photo(user_id, THUMBNAIL_URL, caption=formatted_caption, reply_markup=keyboard)
             delete_tracked_messages(user_id)
             
+            # Reset user data while keeping preview type
+            preview_type = user_data[user_id]["preview_type"]
+            user_data[user_id] = {"preview_type": preview_type}
+            
             # Automatically ask for the next video or preview link
-            if user_data[user_id]["preview_type"] == "auto":
+            if preview_type == "auto":
                 msg = bot.send_message(user_id, "Please send another video to generate the preview.", reply_markup=get_cancel_keyboard())
                 track_message(user_id, msg.message_id)
                 bot.register_next_step_handler(message, process_video)
@@ -324,9 +308,6 @@ def handle_link(message):
         except Exception as e:
             error_msg = bot.send_message(user_id, f"Sorry, there was an error processing your request: {e}")
             track_message(user_id, error_msg.message_id)
-        finally:
-            # Cleanup user_data
-            del user_data[user_id]
     else:
         msg = bot.send_message(message.chat.id, "Please start the process again by typing /start.")
         track_message(message.chat.id, msg.message_id)
