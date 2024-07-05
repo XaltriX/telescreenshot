@@ -286,7 +286,31 @@ def handle_caption(message):
         track_message(message.chat.id, msg.message_id)
 
 def handle_link(message):
-    # ... [previous part of the function] ...
+    if not is_user_allowed(message):
+        return
+    if message.text == "Cancel":
+        delete_tracked_messages(message.chat.id)
+        start_message(message)
+        return
+    user_id = message.chat.id
+    if user_id in user_data:
+        preview_link = user_data[user_id]["preview_link"]
+        caption = user_data[user_id]["caption"]
+        link = message.text
+
+        formatted_caption = (
+            f"◇──◆──◇──◆  ◇──◆──◇──◆\n"
+            f"   @NeonGhost_Networks\n"
+            f"◇──◆──◇──◆  ◇──◆──◇──◆\n\n"
+            f"╰┈┈➤ 🚨 {caption} 🚨\n\n"
+            f"╰┈┈┈┈┈➤ 🔗 Preview Link: {preview_link}\n\n"
+            f"╰┈┈┈┈┈┈┈┈➤ 💋 🔗🤞 Full Video Link: {link} 🔞🤤\n"
+        )
+
+        keyboard = InlineKeyboardMarkup()
+        keyboard.add(InlineKeyboardButton("18+ Bot🤖🔞", url="https://t.me/new_leakx_mms_bot"))
+        keyboard.add(InlineKeyboardButton("More Videos🔞🎥", url="https://t.me/+H6sxjIpsz-cwYjQ0"))
+        keyboard.add(InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/+ZgpjbYx8dGZjODI9"))
 
         try:
             final_post = bot.send_photo(user_id, THUMBNAIL_URL, caption=formatted_caption, reply_markup=keyboard)
