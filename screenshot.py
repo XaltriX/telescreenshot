@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 # Your Telegram Bot API token
-TOKEN = '7147998933:AAGxVDx1pxyM8MVYvrbm3Nb8zK6DgI1H8RU'
+TOKEN = '6317227210:AAGpjnW4q6LBrpYdFNN1YrH62NcH9r_z03Q'
 
 # Initialize bot
 bot = telebot.TeleBot(TOKEN)
