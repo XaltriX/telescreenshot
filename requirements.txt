@@ -9,3 +9,4 @@ aiohttp
 colorthief
 telebot
 telegram
+ffmpeg
