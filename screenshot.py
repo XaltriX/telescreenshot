@@ -238,9 +238,10 @@ def generate_screenshots(video_file, user_id, message_id):
             .run(capture_stdout=True, capture_stderr=True)
         )
         
-        screenshot = Image.open(output_file)
-        screenshot = resize_and_add_watermark(screenshot)
-        screenshots.append(screenshot)
+        with open(output_file, 'rb') as img_file:
+            screenshot = Image.open(img_file)
+            screenshot = resize_and_add_watermark(screenshot)
+            screenshots.append(screenshot)
         
         os.remove(output_file)
         
