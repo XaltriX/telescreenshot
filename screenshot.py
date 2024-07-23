@@ -3,7 +3,9 @@ import os
 import re
 import tempfile
 import requests
-from PIL import Image
+import cv2
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 import ffmpeg
 
@@ -128,6 +130,7 @@ def handle_manual_preview(message):
         msg = bot.send_message(message.chat.id, "Please start the process again by typing /start.")
         track_message(message.chat.id, msg.message_id)
 
+# Handler to process the video for custom caption
 def process_video(message):
     if not is_user_allowed(message):
         return
@@ -144,20 +147,54 @@ def process_video(message):
         user_id = message.chat.id
         file_id = message.video.file_id
         file_info = bot.get_file(file_id)
-        file_path = file_info.file_path
-        file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path}"
+        file_size = file_info.file_size
         
-        # Generate screenshots progress
-        screenshot_msg = bot.send_message(user_id, "Generating screenshots: 0%")
-        track_message(user_id, screenshot_msg.message_id)
+        # Check if file size is greater than 20 MB
+        if file_size > 20 * 1024 * 1024:
+            msg = bot.send_message(user_id, "This video is larger than 20 MB. It may take longer to process.")
+            track_message(user_id, msg.message_id)
+        
+        # Download progress
+        download_msg = bot.send_message(user_id, "Downloading video: 0%")
+        track_message(user_id, download_msg.message_id)
+        
+        temp_file_path = None
+        collage_path = None
         
         try:
-            screenshots = generate_screenshots_from_url(file_url, user_id, screenshot_msg.message_id)
-            bot.edit_message_text("Generating screenshots: 100%", user_id, screenshot_msg.message_id)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
+                temp_file_path = temp_file.name
+                
+            # Download the file in chunks
+            downloaded_size = 0
+            chunk_size = 1024 * 1024  # 1 MB chunks
+            with open(temp_file_path, 'wb') as video_file:
+                for chunk in bot.download_file(file_info.file_path):
+                    video_file.write(chunk)
+                    downloaded_size += len(chunk)
+                    progress = int(downloaded_size / file_size * 100)
+                    bot.edit_message_text(f"Downloading video: {progress}%", user_id, download_msg.message_id)
+            
+            bot.edit_message_text("Downloading video: 100%", user_id, download_msg.message_id)
+            
+            # Generate screenshots progress
+            screenshot_msg = bot.send_message(user_id, "Generating screenshots: 0%")
+            track_message(user_id, screenshot_msg.message_id)
+            screenshots = generate_screenshots(temp_file_path, user_id, screenshot_msg.message_id)
+            try:
+                bot.edit_message_text("Generating screenshots: 100%", user_id, screenshot_msg.message_id)
+            except telebot.apihelper.ApiTelegramException as e:
+                if "message is not modified" not in str(e):
+                    raise
             
             collage = create_collage(screenshots)
-            collage_path = f"collage_{file_id}.jpg"
+            collage_path = f"{temp_file_path}_collage.jpg"
             collage.save(collage_path, optimize=True, quality=95)
+            
+            # Send collage to user
+            with open(collage_path, 'rb') as collage_file:
+                collage_msg = bot.send_photo(user_id, collage_file, caption="Here's the preview collage:")
+                track_message(user_id, collage_msg.message_id)
             
             # Upload progress
             upload_msg = bot.send_message(user_id, "Uploading to graph.org: 0%")
@@ -165,7 +202,7 @@ def process_video(message):
             graph_url = upload_to_graph(collage_path, user_id, upload_msg.message_id)
             bot.edit_message_text("Uploading to graph.org: 100%", user_id, upload_msg.message_id)
             
-            user_data[user_id] = {"preview_type": "auto", "preview_link": graph_url}
+            user_data[user_id]["preview_link"] = graph_url
             
             msg = bot.send_message(user_id, "Preview generated. Please provide a custom caption for the video.", reply_markup=get_cancel_keyboard())
             track_message(user_id, msg.message_id)
@@ -174,15 +211,17 @@ def process_video(message):
             error_msg = bot.send_message(user_id, f"An error occurred: {str(e)}")
             track_message(user_id, error_msg.message_id)
         finally:
-            if os.path.exists(collage_path):
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+            if collage_path and os.path.exists(collage_path):
                 os.unlink(collage_path)
     else:
         msg = bot.send_message(message.chat.id, "Please send a video. Try again or type 'Cancel' to exit.", reply_markup=get_cancel_keyboard())
         track_message(message.chat.id, msg.message_id)
         bot.register_next_step_handler(message, process_video)
 
-def generate_screenshots_from_url(file_url, user_id, message_id):
-    probe = ffmpeg.probe(file_url)
+def generate_screenshots(video_file, user_id, message_id):
+    probe = ffmpeg.probe(video_file)
     duration = float(probe['streams'][0]['duration'])
     num_screenshots = 5 if duration < 60 else 10
     time_points = [i * duration / num_screenshots for i in range(num_screenshots)]
@@ -192,7 +231,7 @@ def generate_screenshots_from_url(file_url, user_id, message_id):
         output_file = f"screenshot_{i}.jpg"
         (
             ffmpeg
-            .input(file_url, ss=time_point)
+            .input(video_file, ss=time_point)
             .filter('scale', 640, -1)
             .output(output_file, vframes=1)
             .overwrite_output()
@@ -200,6 +239,7 @@ def generate_screenshots_from_url(file_url, user_id, message_id):
         )
         
         screenshot = Image.open(output_file)
+        screenshot = resize_and_add_watermark(screenshot)
         screenshots.append(screenshot)
         
         os.remove(output_file)
@@ -208,6 +248,16 @@ def generate_screenshots_from_url(file_url, user_id, message_id):
         bot.edit_message_text(f"Generating screenshots: {progress}%", user_id, message_id)
     
     return screenshots
+
+def resize_and_add_watermark(image):
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+    text = "@NeonGhost_Networks"
+    text_x = (image.width - 200) // 2
+    text_y = (image.height - 20) // 2
+    draw.text((text_x, text_y), text, font=font, fill=(255, 255, 255))
+    
+    return image
 
 def create_collage(screenshots):
     cols = 2
