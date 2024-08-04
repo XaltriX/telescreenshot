@@ -159,20 +159,27 @@ def process_video(message):
             # Download the file in chunks
             downloaded_size = 0
             chunk_size = 1024 * 1024  # 1 MB chunks
+            last_progress = 0
             with open(temp_video_file, 'wb') as video_file:
                 file = bot.download_file(file_info.file_path)
                 for chunk in [file[i:i+chunk_size] for i in range(0, len(file), chunk_size)]:
                     video_file.write(chunk)
                     downloaded_size += len(chunk)
                     progress = int(downloaded_size / file_size * 100)
-                    bot.edit_message_text(f"Downloading video: {progress}%", user_id, download_msg.message_id)
+                    if progress - last_progress >= 10:  # Update every 10% progress
+                        try:
+                            bot.edit_message_text(f"Downloading video: {progress}%", user_id, download_msg.message_id)
+                            last_progress = progress
+                        except telebot.apihelper.ApiTelegramException as e:
+                            if e.error_code != 400 or 'message is not modified' not in e.description:
+                                raise
             
-            bot.edit_message_text("Downloading video: 100%", user_id, download_msg.message_id)
+            bot.edit_message_text("Video downloaded successfully", user_id, download_msg.message_id)
             
             screenshot_msg = bot.send_message(user_id, "Generating screenshots: 0%")
             track_message(user_id, screenshot_msg.message_id)
             screenshots = generate_screenshots(temp_video_file, user_id, screenshot_msg.message_id)
-            bot.edit_message_text("Generating screenshots: 100%", user_id, screenshot_msg.message_id)
+            bot.edit_message_text("Screenshots generated successfully", user_id, screenshot_msg.message_id)
             
             os.remove(temp_video_file)  # Clean up the temporary video file
             
@@ -188,7 +195,7 @@ def process_video(message):
             upload_msg = bot.send_message(user_id, "Uploading to graph.org: 0%")
             track_message(user_id, upload_msg.message_id)
             graph_url = upload_to_graph(collage_buffer, user_id, upload_msg.message_id)
-            bot.edit_message_text("Uploading to graph.org: 100%", user_id, upload_msg.message_id)
+            bot.edit_message_text("Upload to graph.org completed", user_id, upload_msg.message_id)
             
             user_data[user_id]["preview_link"] = graph_url
             
