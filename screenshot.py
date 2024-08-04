@@ -160,7 +160,8 @@ def process_video(message):
             downloaded_size = 0
             chunk_size = 1024 * 1024  # 1 MB chunks
             with open(temp_video_file, 'wb') as video_file:
-                for chunk in bot.download_file(file_info.file_path):
+                file = bot.download_file(file_info.file_path)
+                for chunk in [file[i:i+chunk_size] for i in range(0, len(file), chunk_size)]:
                     video_file.write(chunk)
                     downloaded_size += len(chunk)
                     progress = int(downloaded_size / file_size * 100)
