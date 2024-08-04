@@ -127,7 +127,6 @@ def handle_manual_preview(message):
     else:
         msg = bot.send_message(message.chat.id, "Please start the process again by typing /start.")
         track_message(message.chat.id, msg.message_id)
-
 def process_video(message):
     if not is_user_allowed(message):
         return
@@ -188,12 +187,13 @@ def process_video(message):
             collage.save(collage_buffer, format='JPEG')
             collage_buffer.seek(0)
             
-            with collage_buffer as collage_file:
-                collage_msg = bot.send_photo(user_id, collage_file, caption="Here's the preview collage:")
-                track_message(user_id, collage_msg.message_id)
+            collage_msg = bot.send_photo(user_id, collage_buffer, caption="Here's the preview collage:")
+            track_message(user_id, collage_msg.message_id)
             
             upload_msg = bot.send_message(user_id, "Uploading to graph.org: 0%")
             track_message(user_id, upload_msg.message_id)
+            
+            collage_buffer.seek(0)  # Reset buffer position
             graph_url = upload_to_graph(collage_buffer, user_id, upload_msg.message_id)
             bot.edit_message_text("Upload to graph.org completed", user_id, upload_msg.message_id)
             
