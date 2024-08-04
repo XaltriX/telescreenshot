@@ -253,67 +253,65 @@ def generate_screenshots(video_file, user_id, message_id):
     return screenshots
 
 def create_collage(screenshots):
+    num_screenshots = len(screenshots)
+    
     # Determine the orientation based on the first screenshot
     first_screenshot = screenshots[0]
     is_portrait = first_screenshot.height > first_screenshot.width
 
-    # Set collage dimensions
+    # Set collage dimensions and grid layout
     if is_portrait:
-        collage_width = 1080
-        collage_height = 1920
+        collage_width, collage_height = 1080, 1920
+        if num_screenshots == 5:
+            grid = (2, 3)
+        else:  # 10 screenshots
+            grid = (3, 4)
     else:
-        collage_width = 1920
-        collage_height = 1080
+        collage_width, collage_height = 1920, 1080
+        if num_screenshots == 5:
+            grid = (3, 2)
+        else:  # 10 screenshots
+            grid = (4, 3)
+
+    # Calculate cell dimensions
+    cell_width = collage_width // grid[0]
+    cell_height = collage_height // grid[1]
 
     # Create a new image with white background
     collage = Image.new('RGB', (collage_width, collage_height), (255, 255, 255))
 
-    num_screenshots = len(screenshots)
-    
-    if num_screenshots == 5:
-        positions = [
-            (0, 0, collage_width // 2, collage_height // 2),
-            (collage_width // 2, 0, collage_width, collage_height // 2),
-            (0, collage_height // 2, collage_width // 2, collage_height),
-            (collage_width // 2, collage_height // 2, collage_width, collage_height),
-            (collage_width // 4, collage_height * 3 // 4, collage_width * 3 // 4, collage_height)
-        ]
-    elif num_screenshots == 10:
-        positions = [
-            (0, 0, collage_width // 2, collage_height // 4),
-            (collage_width // 2, 0, collage_width, collage_height // 4),
-            (0, collage_height // 4, collage_width // 2, collage_height // 2),
-            (collage_width // 2, collage_height // 4, collage_width, collage_height // 2),
-            (0, collage_height // 2, collage_width // 2, collage_height * 3 // 4),
-            (collage_width // 2, collage_height // 2, collage_width, collage_height * 3 // 4),
-            (0, collage_height * 3 // 4, collage_width // 3, collage_height),
-            (collage_width // 3, collage_height * 3 // 4, collage_width * 2 // 3, collage_height),
-            (collage_width * 2 // 3, collage_height * 3 // 4, collage_width, collage_height),
-            (collage_width // 4, collage_height * 7 // 8, collage_width * 3 // 4, collage_height)
-        ]
-    else:
-        # For any other number of screenshots, use a simple grid layout
-        cols = 3
-        rows = (num_screenshots + cols - 1) // cols
-        cell_width = collage_width // cols
-        cell_height = collage_height // rows
-        positions = [
-            (i % cols * cell_width, i // cols * cell_height, (i % cols + 1) * cell_width, (i // cols + 1) * cell_height)
-            for i in range(num_screenshots)
-        ]
+    # Minimal separation (1 pixel)
+    separation = 1
 
-    for screenshot, position in zip(screenshots, positions):
-        # Resize and crop the screenshot to fit the position
-        img_width = position[2] - position[0]
-        img_height = position[3] - position[1]
+    for i, screenshot in enumerate(screenshots):
+        # Calculate position
+        row = i // grid[0]
+        col = i % grid[0]
+        
+        x = col * cell_width + (col * separation)
+        y = row * cell_height + (row * separation)
+        
+        # Resize the screenshot to fit within the cell while maintaining aspect ratio
+        img_width = cell_width - separation
+        img_height = cell_height - separation
+        
         img = screenshot.copy()
         img.thumbnail((img_width, img_height), Image.LANCZOS)
         
-        # Center the image in its position
-        offset_x = (img_width - img.width) // 2
-        offset_y = (img_height - img.height) // 2
+        # Center the image in its cell
+        x_offset = (cell_width - img.width) // 2
+        y_offset = (cell_height - img.height) // 2
         
-        collage.paste(img, (position[0] + offset_x, position[1] + offset_y))
+        collage.paste(img, (x + x_offset, y + y_offset))
+
+    # Add thin lines between cells
+    draw = ImageDraw.Draw(collage)
+    for i in range(1, grid[0]):
+        x = i * cell_width - (separation // 2)
+        draw.line([(x, 0), (x, collage_height)], fill=(200, 200, 200), width=separation)
+    for j in range(1, grid[1]):
+        y = j * cell_height - (separation // 2)
+        draw.line([(0, y), (collage_width, y)], fill=(200, 200, 200), width=separation)
 
     return collage
 
