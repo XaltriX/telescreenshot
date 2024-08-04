@@ -154,25 +154,26 @@ def process_video(message):
         track_message(user_id, download_msg.message_id)
         
         try:
-            video_data = io.BytesIO()
+            temp_video_file = f"temp_video_{file_id}.mp4"
             
             # Download the file in chunks
             downloaded_size = 0
             chunk_size = 1024 * 1024  # 1 MB chunks
-            for chunk in bot.download_file(file_info.file_path):
-                video_data.write(chunk)
-                downloaded_size += len(chunk)
-                progress = int(downloaded_size / file_size * 100)
-                bot.edit_message_text(f"Downloading video: {progress}%", user_id, download_msg.message_id)
-            
-            video_data.seek(0)  # Reset the buffer position to the beginning
+            with open(temp_video_file, 'wb') as video_file:
+                for chunk in bot.download_file(file_info.file_path):
+                    video_file.write(chunk)
+                    downloaded_size += len(chunk)
+                    progress = int(downloaded_size / file_size * 100)
+                    bot.edit_message_text(f"Downloading video: {progress}%", user_id, download_msg.message_id)
             
             bot.edit_message_text("Downloading video: 100%", user_id, download_msg.message_id)
             
             screenshot_msg = bot.send_message(user_id, "Generating screenshots: 0%")
             track_message(user_id, screenshot_msg.message_id)
-            screenshots = generate_screenshots(video_data, user_id, screenshot_msg.message_id)
+            screenshots = generate_screenshots(temp_video_file, user_id, screenshot_msg.message_id)
             bot.edit_message_text("Generating screenshots: 100%", user_id, screenshot_msg.message_id)
+            
+            os.remove(temp_video_file)  # Clean up the temporary video file
             
             collage = create_collage(screenshots)
             collage_buffer = io.BytesIO()
@@ -201,29 +202,41 @@ def process_video(message):
         track_message(message.chat.id, msg.message_id)
         bot.register_next_step_handler(message, process_video)
 
-def generate_screenshots(video_data, user_id, message_id):
-    probe = ffmpeg.probe(io.BytesIO(video_data.getvalue()))
-    duration = float(probe['streams'][0]['duration'])
-    num_screenshots = 5 if duration < 60 else 10
-    time_points = [i * duration / num_screenshots for i in range(num_screenshots)]
+def generate_screenshots(video_file, user_id, message_id):
+    try:
+        probe = ffmpeg.probe(video_file)
+        duration = float(probe['streams'][0]['duration'])
+        num_screenshots = 5 if duration < 60 else 10
+        time_points = [i * duration / num_screenshots for i in range(num_screenshots)]
+        
+        screenshots = []
+        for i, time_point in enumerate(time_points):
+            output_filename = f"screenshot_{i}.jpg"
+            
+            try:
+                (
+                    ffmpeg
+                    .input(video_file, ss=time_point)
+                    .filter('scale', 640, -1)
+                    .output(output_filename, vframes=1)
+                    .overwrite_output()
+                    .run(capture_stdout=True, capture_stderr=True)
+                )
+                
+                screenshot = Image.open(output_filename)
+                screenshots.append(screenshot)
+                os.remove(output_filename)  # Clean up the temporary file
+                
+                progress = int((i + 1) / num_screenshots * 100)
+                bot.edit_message_text(f"Generating screenshots: {progress}%", user_id, message_id)
+            
+            except ffmpeg.Error as e:
+                print(f"FFmpeg error: {e.stderr.decode()}")
+                raise
     
-    screenshots = []
-    for i, time_point in enumerate(time_points):
-        output = io.BytesIO()
-        (
-            ffmpeg
-            .input(io.BytesIO(video_data.getvalue()), ss=time_point)
-            .filter('scale', 640, -1)
-            .output(output, vframes=1, format='rawvideo', pix_fmt='rgb24')
-            .run(capture_stdout=True, capture_stderr=True)
-        )
-        
-        output.seek(0)
-        screenshot = Image.frombytes('RGB', (640, 360), output.getvalue())
-        screenshots.append(screenshot)
-        
-        progress = int((i + 1) / num_screenshots * 100)
-        bot.edit_message_text(f"Generating screenshots: {progress}%", user_id, message_id)
+    except Exception as e:
+        print(f"Error in generate_screenshots: {str(e)}")
+        raise
     
     return screenshots
 
@@ -297,9 +310,9 @@ def handle_link(message):
         )
 
         keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton("18+ Bot🤖🔞", url="https://t.me/new_leakx_mms_bot"))
+        keyboard.add(InlineKeyboardButton("18+ Bot🤖🔞", url="https://t.me/NightLifeRobot"))
         keyboard.add(InlineKeyboardButton("More Videos🔞🎥", url="https://t.me/+H6sxjIpsz-cwYjQ0"))
-        keyboard.add(InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/+ZgpjbYx8dGZjODI9"))
+        keyboard.add(InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/Desi_MMS_Viral_Video0"))
 
         try:
             final_post = bot.send_photo(user_id, THUMBNAIL_URL, caption=formatted_caption, reply_markup=keyboard)
@@ -401,8 +414,8 @@ def process_media(message, media_type):
 
         keyboard = telebot.types.InlineKeyboardMarkup()
         keyboard.add(telebot.types.InlineKeyboardButton("How To Watch & Download 🔞", url="https://t.me/HTDTeraBox/5"))
-        keyboard.add(telebot.types.InlineKeyboardButton("Movie Group🔞🎥", url="https://t.me/RequestGroupNG"))
-        keyboard.add(telebot.types.InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/+ZgpjbYx8dGZjODI9"))
+        keyboard.add(telebot.types.InlineKeyboardButton("18+ Bot🔞", url="https://t.me/NightLifeRobot"))
+        keyboard.add(telebot.types.InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/Desi_MMS_Viral_Video0"))
 
         with open(media_filename, 'rb') as media:
             if media_type == 'photo':
