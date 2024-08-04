@@ -3,7 +3,7 @@ import os
 import re
 import io
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 import ffmpeg
 
