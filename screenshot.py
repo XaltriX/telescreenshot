@@ -236,7 +236,11 @@ def generate_screenshots(video_file, user_id, message_id):
                 os.remove(output_filename)  # Clean up the temporary file
                 
                 progress = int((i + 1) / num_screenshots * 100)
-                bot.edit_message_text(f"Generating screenshots: {progress}%", user_id, message_id)
+                try:
+                    bot.edit_message_text(f"Generating screenshots: {progress}%", user_id, message_id)
+                except telebot.apihelper.ApiTelegramException as e:
+                    if e.error_code != 400 or 'message is not modified' not in e.description:
+                        raise
             
             except ffmpeg.Error as e:
                 print(f"FFmpeg error: {e.stderr.decode()}")
