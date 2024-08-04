@@ -10,3 +10,4 @@ colorthief
 telebot
 telegram
 ffmpeg
+ffmpeg-python
