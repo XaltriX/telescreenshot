@@ -346,6 +346,8 @@ def handle_caption(message):
         msg = bot.send_message(message.chat.id, "Please start the process again by typing /start.")
         track_message(message.chat.id, msg.message_id)
 
+# ... (previous code remains the same)
+
 def handle_link(message):
     if not is_user_allowed(message):
         return
@@ -375,7 +377,7 @@ def handle_link(message):
         keyboard.add(InlineKeyboardButton("Movie Group🎥", url="https://t.me/RQSTGroup"))
 
         try:
-            final_post = bot.send_message(user_id, formatted_caption, reply_markup=keyboard)
+            final_post = bot.send_message(user_id, formatted_caption, reply_markup=keyboard, disable_web_page_preview=True)
             delete_tracked_messages(user_id)
             
             # Reset user data while keeping preview type
@@ -397,6 +399,8 @@ def handle_link(message):
     else:
         msg = bot.send_message(message.chat.id, "Please start the process again by typing /start.")
         track_message(message.chat.id, msg.message_id)
+
+# ... (rest of the code remains the same)
 
 @bot.message_handler(content_types=['photo', 'video', 'document'])
 def handle_media(message):
