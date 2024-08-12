@@ -13,9 +13,6 @@ TOKEN = '6317227210:AAGpjnW4q6LBrpYdFNN1YrH62NcH9r_z03Q'
 # Initialize bot
 bot = telebot.TeleBot(TOKEN)
 
-# Permanent thumbnail URL for the custom caption feature
-THUMBNAIL_URL = 'https://telegra.ph/file/cab0b607ce8c4986e083c.jpg'
-
 # Dictionary to store user data for custom captions
 user_data = {}
 
@@ -127,6 +124,7 @@ def handle_manual_preview(message):
     else:
         msg = bot.send_message(message.chat.id, "Please start the process again by typing /start.")
         track_message(message.chat.id, msg.message_id)
+
 def process_video(message):
     if not is_user_allowed(message):
         return
@@ -377,7 +375,7 @@ def handle_link(message):
         keyboard.add(InlineKeyboardButton("Movie Group🎥", url="https://t.me/RQSTGroup"))
 
         try:
-            final_post = bot.send_photo(user_id, THUMBNAIL_URL, caption=formatted_caption, reply_markup=keyboard)
+            final_post = bot.send_message(user_id, formatted_caption, reply_markup=keyboard)
             delete_tracked_messages(user_id)
             
             # Reset user data while keeping preview type
