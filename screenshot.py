@@ -373,7 +373,8 @@ def handle_link(message):
         keyboard = InlineKeyboardMarkup()
         keyboard.add(InlineKeyboardButton("18+ Bot🤖🔞", url="https://t.me/NightLifeRobot"))
         keyboard.add(InlineKeyboardButton("More Videos🔞🎥", url="https://t.me/+H6sxjIpsz-cwYjQ0"))
-        keyboard.add(InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/Desi_MMS_Viral_Video0"))
+        keyboard.add(InlineKeyboardButton("Without Token Video🔞", url="https://t.me/+N2SfuzZQ9h45ZGZk"))
+        keyboard.add(InlineKeyboardButton("Movie Group🎥", url="https://t.me/RQSTGroup"))
 
         try:
             final_post = bot.send_photo(user_id, THUMBNAIL_URL, caption=formatted_caption, reply_markup=keyboard)
@@ -476,7 +477,7 @@ def process_media(message, media_type):
         keyboard = telebot.types.InlineKeyboardMarkup()
         keyboard.add(telebot.types.InlineKeyboardButton("How To Watch & Download 🔞", url="https://t.me/HTDTeraBox/5"))
         keyboard.add(telebot.types.InlineKeyboardButton("18+ Bot🔞", url="https://t.me/NightLifeRobot"))
-        keyboard.add(telebot.types.InlineKeyboardButton("BackUp Channel🎯", url="https://t.me/Desi_MMS_Viral_Video0"))
+        keyboard.add(telebot.types.InlineKeyboardButton("Movie Group", url="https://t.me/RQSTGroup"))
 
         with open(media_filename, 'rb') as media:
             if media_type == 'photo':
