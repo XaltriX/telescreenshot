@@ -6,6 +6,8 @@ import requests
 from PIL import Image, ImageDraw
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 import ffmpeg
+import time
+import sys
 
 # Your Telegram Bot API token
 TOKEN = '6317227210:AAGpjnW4q6LBrpYdFNN1YrH62NcH9r_z03Q'
@@ -188,14 +190,14 @@ def process_video(message):
             collage_msg = bot.send_photo(user_id, collage_buffer, caption="Here's the preview collage:")
             track_message(user_id, collage_msg.message_id)
             
-            upload_msg = bot.send_message(user_id, "Uploading to graph.org: 0%")
+            upload_msg = bot.send_message(user_id, "Uploading to envs.sh: 0%")
             track_message(user_id, upload_msg.message_id)
             
             collage_buffer.seek(0)  # Reset buffer position
-            graph_url = upload_to_graph(collage_buffer, user_id, upload_msg.message_id)
-            bot.edit_message_text("Upload to graph.org completed", user_id, upload_msg.message_id)
+            envs_url = upload_to_envs(collage_buffer, user_id, upload_msg.message_id)
+            bot.edit_message_text("Upload to envs.sh completed", user_id, upload_msg.message_id)
             
-            user_data[user_id]["preview_link"] = graph_url
+            user_data[user_id]["preview_link"] = envs_url
             
             msg = bot.send_message(user_id, "Preview generated. Please provide a custom caption for the video.", reply_markup=get_cancel_keyboard())
             track_message(user_id, msg.message_id)
@@ -313,21 +315,20 @@ def create_collage(screenshots):
 
     return collage
 
-def upload_to_graph(image_buffer, user_id, message_id):
-    url = "https://graph.org/upload"
+def upload_to_envs(image_buffer, user_id, message_id):
+    url = "https://envs.sh"
     
-    image_buffer.seek(0)
-    files = {"file": ("image.jpg", image_buffer, "image/jpeg")}
-    response = requests.post(url, files=files)
-    
-    if response.status_code == 200:
-        data = response.json()
-        if data[0].get("src"):
-            return f"https://graph.org{data[0]['src']}"
+    try:
+        files = {"file": ("image.jpg", image_buffer, "image/jpeg")}
+        response = requests.post(url, files=files)
+        
+        if response.status_code == 200:
+            return response.text.strip()
         else:
-            raise Exception("Unable to retrieve image link from response")
-    else:
-        raise Exception(f"Upload failed with status code {response.status_code}")
+            raise Exception(f"Upload failed with status code {response.status_code}")
+    except Exception as e:
+        bot.send_message(user_id, f"Error uploading to envs.sh: {str(e)}")
+        raise
 
 def handle_caption(message):
     if not is_user_allowed(message):
@@ -345,8 +346,6 @@ def handle_caption(message):
     else:
         msg = bot.send_message(message.chat.id, "Please start the process again by typing /start.")
         track_message(message.chat.id, msg.message_id)
-
-# ... (previous code remains the same)
 
 def handle_link(message):
     if not is_user_allowed(message):
@@ -374,7 +373,7 @@ def handle_link(message):
         keyboard.add(InlineKeyboardButton("18+ Bot🤖🔞", url="https://t.me/NightLifeRobot"))
         keyboard.add(InlineKeyboardButton("More Videos🔞🎥", url="https://t.me/+H6sxjIpsz-cwYjQ0"))
         keyboard.add(InlineKeyboardButton("Without Token Video🔞", url="https://t.me/+N2SfuzZQ9h45ZGZk"))
-        keyboard.add(InlineKeyboardButton("Movie Group🎥", url="https://t.me/RQSTGroup"))
+        keyboard.add(InlineKeyboardButton("Movie Group🎥", url="https://t.me/+Xs8osVK7iX81Yjc0"))
 
         try:
             final_post = bot.send_message(user_id, formatted_caption, reply_markup=keyboard, disable_web_page_preview=True)
@@ -399,8 +398,6 @@ def handle_link(message):
     else:
         msg = bot.send_message(message.chat.id, "Please start the process again by typing /start.")
         track_message(message.chat.id, msg.message_id)
-
-# ... (rest of the code remains the same)
 
 @bot.message_handler(content_types=['photo', 'video', 'document'])
 def handle_media(message):
@@ -479,7 +476,7 @@ def process_media(message, media_type):
         keyboard = telebot.types.InlineKeyboardMarkup()
         keyboard.add(telebot.types.InlineKeyboardButton("How To Watch & Download 🔞", url="https://t.me/HTDTeraBox/5"))
         keyboard.add(telebot.types.InlineKeyboardButton("18+ Bot🔞", url="https://t.me/NightLifeRobot"))
-        keyboard.add(telebot.types.InlineKeyboardButton("Movie Group", url="https://t.me/RQSTGroup"))
+        keyboard.add(telebot.types.InlineKeyboardButton("Movie Group", url="https://t.me/+Xs8osVK7iX81Yjc0"))
 
         with open(media_filename, 'rb') as media:
             if media_type == 'photo':
@@ -496,5 +493,15 @@ def process_media(message, media_type):
         error_msg = bot.send_message(user_id, f"Sorry, there was an error processing your request: {e}")
         track_message(user_id, error_msg.message_id)
 
-# Start the bot
-bot.polling()
+def main():
+    while True:
+        try:
+            print("Starting the bot...")
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            print("Restarting the bot in 10 seconds...")
+            time.sleep(10)
+
+if __name__ == "__main__":
+    main()
