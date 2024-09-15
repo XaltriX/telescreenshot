@@ -78,8 +78,11 @@ def handle_text(message):
         track_message(message.chat.id, msg.message_id)
         bot.register_next_step_handler(message, handle_preview_type)
     elif message.text == "TeraBox Editor":
-        msg = bot.send_message(message.chat.id, "Please send one or more images, videos, or GIFs with TeraBox links in the captions.")
+        keyboard = ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+        keyboard.add("Cancel")
+        msg = bot.send_message(message.chat.id, "Please send one or more images, videos, or GIFs with TeraBox links in the captions. Type 'Cancel' to exit.", reply_markup=keyboard)
         track_message(message.chat.id, msg.message_id)
+        bot.register_next_step_handler(message, handle_terabox_media)
     elif message.text == "Cancel":
         delete_tracked_messages(message.chat.id)
         start_message(message)
@@ -370,8 +373,8 @@ def handle_link(message):
         )
 
         keyboard = InlineKeyboardMarkup()
-        keyboard.add(InlineKeyboardButton("18+ Bot🤖( ͜ ㅅ ͜ )", url="https://t.me/NightLifeRobot"))
-        keyboard.add(InlineKeyboardButton("More Videos ( ͜. ㅅ ͜. )yumy🎥", url="https://t.me/+VjA5nTJf8xxkYjk0"))
+        keyboard.add(InlineKeyboardButton("18+ Bot🤖( ͜ ㅅ ͜ )", url="https://t.me/NightLifeRobot"))
+        keyboard.add(InlineKeyboardButton("More Videos ( ͜. ㅅ ͜. )yumy🎥", url="https://t.me/+VjA5nTJf8xxkYjk0"))
         keyboard.add(InlineKeyboardButton("Without Token Video🔞", url="https://t.me/+N2SfuzZQ9h45ZGZk"))
         keyboard.add(InlineKeyboardButton("Movie Group🎥", url="https://t.me/+Xs8osVK7iX81Yjc0"))
 
@@ -399,26 +402,23 @@ def handle_link(message):
         msg = bot.send_message(message.chat.id, "Please start the process again by typing /start.")
         track_message(message.chat.id, msg.message_id)
 
-@bot.message_handler(content_types=['photo', 'video', 'document'])
-def handle_media(message):
+def handle_terabox_media(message):
     if not is_user_allowed(message):
         return
+    if message.text == "Cancel":
+        delete_tracked_messages(message.chat.id)
+        start_message(message)
+        return
+    
     user_id = message.chat.id
     media_type = message.content_type
 
-    if media_type == 'photo':
-        process_media(message, 'photo')
-    elif media_type == 'video':
-        process_media(message, 'video')
-    elif media_type == 'document':
-        if message.document.mime_type == 'image/gif':
-            process_media(message, 'gif')
-        else:
-            msg = bot.send_message(message.chat.id, "Unsupported document type. Please send images, videos, or GIFs.")
-            track_message(message.chat.id, msg.message_id)
+    if media_type in ['photo', 'video', 'document']:
+        process_media(message, media_type)
     else:
         msg = bot.send_message(message.chat.id, "Unsupported media type. Please send images, videos, or GIFs.")
         track_message(message.chat.id, msg.message_id)
+        bot.register_next_step_handler(message, handle_terabox_media)
 
 def process_media(message, media_type):
     user_id = message.chat.id
@@ -428,8 +428,14 @@ def process_media(message, media_type):
             file_id = message.photo[-1].file_id
         elif media_type == 'video':
             file_id = message.video.file_id
-        elif media_type == 'gif':
-            file_id = message.document.file_id
+        elif media_type == 'document':
+            if message.document.mime_type == 'image/gif':
+                file_id = message.document.file_id
+            else:
+                msg = bot.send_message(user_id, "Unsupported document type. Please send images, videos, or GIFs.")
+                track_message(user_id, msg.message_id)
+                bot.register_next_step_handler(message, handle_terabox_media)
+                return
 
         file_info = bot.get_file(file_id)
         downloaded_file = bot.download_file(file_info.file_path)
@@ -438,7 +444,7 @@ def process_media(message, media_type):
             media_filename = f"media_{file_id}.jpg"
         elif media_type == 'video':
             media_filename = f"media_{file_id}.mp4"
-        elif media_type == 'gif':
+        elif media_type == 'document':
             media_filename = f"media_{file_id}.gif"
 
         with open(media_filename, 'wb') as media_file:
@@ -483,15 +489,21 @@ def process_media(message, media_type):
                 final_post = bot.send_photo(user_id, media, caption=formatted_caption, reply_markup=keyboard)
             elif media_type == 'video':
                 final_post = bot.send_video(user_id, media, caption=formatted_caption, reply_markup=keyboard)
-            elif media_type == 'gif':
+            elif media_type == 'document':
                 final_post = bot.send_document(user_id, media, caption=formatted_caption, reply_markup=keyboard)
         
         delete_tracked_messages(user_id)
         os.remove(media_filename)
 
+        # Ask for the next media
+        msg = bot.send_message(user_id, "Please send another image, video, or GIF with TeraBox links in the caption, or type 'Cancel' to exit.", reply_markup=get_cancel_keyboard())
+        track_message(user_id, msg.message_id)
+        bot.register_next_step_handler(message, handle_terabox_media)
+
     except Exception as e:
         error_msg = bot.send_message(user_id, f"Sorry, there was an error processing your request: {e}")
         track_message(user_id, error_msg.message_id)
+        bot.register_next_step_handler(message, handle_terabox_media)
 
 def main():
     while True:
