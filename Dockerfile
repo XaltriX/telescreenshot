@@ -1,5 +1,6 @@
 FROM python:3.9-slim
 
+# Set working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -14,7 +15,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the script into the container
-COPY paste.txt /app/screenshot.py
+COPY screenshot.py .
 
 # Run the bot
 CMD ["python", "screenshot.py"]
