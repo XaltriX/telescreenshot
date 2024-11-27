@@ -22,13 +22,13 @@ user_data = {}
 message_ids = {}
 
 # Allowed user (your Telegram username without '@')
-ALLOWED_USER = 'xaltrix'
+ALLOWED_USER = 'Xaltrix'
 
 # Helper function to check if the user is allowed
 def is_user_allowed(message):
     user = bot.get_chat(message.chat.id)
     if user.username != ALLOWED_USER:
-        bot.send_message(message.chat.id, "This is a personal bot. If you want to make your own bot, please contact the developer @i_am_yamraj.")
+        bot.send_message(message.chat.id, "This is a personal bot. If you want to make your own bot, please contact the developer @Xaltrix.")
         return False
     return True
 
