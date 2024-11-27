@@ -506,14 +506,13 @@ def process_media(message, media_type):
         bot.register_next_step_handler(message, handle_terabox_media)
 
 def main():
-    while True:
-        try:
-            print("Starting the bot...")
-            bot.polling(none_stop=True, interval=0, timeout=20)
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            print("Restarting the bot in 10 seconds...")
-            time.sleep(10)
+    print(f"Bot started. TOKEN: {TOKEN[:5]}...")  # Partial token logging for debugging
+    try:
+        bot.polling(none_stop=True, timeout=20)
+    except Exception as e:
+        print(f"Bot polling error: {e}")
+        time.sleep(10)
+        main()  # Recursive restart
 
 if __name__ == "__main__":
     main()
