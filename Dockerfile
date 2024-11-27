@@ -20,5 +20,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Set environment variable for bot token (to be set in Koyeb deployment settings)
 ENV TELEGRAM_BOT_TOKEN=""
 
+# Expose port 8080
+EXPOSE 8080
+
 # Run the bot
 CMD ["python", "screenshot.py"]
