@@ -1,3 +1,4 @@
+# Use an official Python runtime as a parent image
 FROM python:3.9-slim
 
 # Set working directory
@@ -10,12 +11,14 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy the entire project directory
+COPY . .
+
 # Install Python dependencies
-COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the script into the container
-COPY screenshot.py .
+# Set environment variable for bot token (to be set in Koyeb deployment settings)
+ENV TELEGRAM_BOT_TOKEN=""
 
 # Run the bot
 CMD ["python", "screenshot.py"]
