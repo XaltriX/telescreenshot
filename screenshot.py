@@ -10,7 +10,7 @@ import time
 import sys
 
 # Your Telegram Bot API token
-TOKEN = '6317227210:AAGpjnW4q6LBrpYdFNN1YrH62NcH9r_z03Q'
+TOKEN = '7675097665:AAFSfxtyiDFNUVfMTuQy4WYhCXJbL6h3Zbk'
 
 # Initialize bot
 bot = telebot.TeleBot(TOKEN)
@@ -22,7 +22,7 @@ user_data = {}
 message_ids = {}
 
 # Allowed user (your Telegram username without '@')
-ALLOWED_USER = 'i_am_yamraj'
+ALLOWED_USER = 'xaltrix'
 
 # Helper function to check if the user is allowed
 def is_user_allowed(message):
